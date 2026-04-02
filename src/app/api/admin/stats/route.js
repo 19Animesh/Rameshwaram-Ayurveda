@@ -4,6 +4,25 @@ import { getUserFromRequest } from '@/lib/auth';
 
 const prisma = new PrismaClient();
 
+async function withNeonRetry(fn) {
+  try {
+    return await fn();
+  } catch (err) {
+    const isConnectionErr =
+      err.message?.includes('ECONNRESET') ||
+      err.message?.includes('ENOTFOUND') ||
+      err.message?.includes('connect') ||
+      err.code === 'P1001' ||
+      err.code === 'P1017';
+    if (isConnectionErr) {
+      // Wait 2s then retry once
+      await new Promise(r => setTimeout(r, 2000));
+      return await fn();
+    }
+    throw err;
+  }
+}
+
 export async function GET(request) {
   try {
     // Admin-only endpoint
@@ -21,27 +40,29 @@ export async function GET(request) {
       lowStockProducts,
       categoryGroups,
       topProducts,
-    ] = await Promise.all([
-      prisma.product.count(),
-      prisma.order.count(),
-      prisma.user.count({ where: { role: 'user' } }),
-      prisma.order.findMany({ select: { totalAmount: true } }),
-      prisma.product.findMany({
-        where: { stock: { lt: 50 } },
-        select: { id: true, name: true, stock: true },
-        orderBy: { stock: 'asc' },
-        take: 20,
-      }),
-      prisma.product.groupBy({
-        by: ['category'],
-        _count: { id: true },
-      }),
-      prisma.product.findMany({
-        select: { id: true, name: true, reviewCount: true, price: true },
-        orderBy: { reviewCount: 'desc' },
-        take: 5,
-      }),
-    ]);
+    ] = await withNeonRetry(() => 
+      Promise.all([
+        prisma.product.count(),
+        prisma.order.count(),
+        prisma.user.count({ where: { role: 'user' } }),
+        prisma.order.findMany({ select: { totalAmount: true } }),
+        prisma.product.findMany({
+          where: { stock: { lt: 50 } },
+          select: { id: true, name: true, stock: true },
+          orderBy: { stock: 'asc' },
+          take: 20,
+        }),
+        prisma.product.groupBy({
+          by: ['category'],
+          _count: { id: true },
+        }),
+        prisma.product.findMany({
+          select: { id: true, name: true, reviewCount: true, price: true },
+          orderBy: { reviewCount: 'desc' },
+          take: 5,
+        }),
+      ])
+    );
 
     const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
 

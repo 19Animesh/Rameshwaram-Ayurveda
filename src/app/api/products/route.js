@@ -5,6 +5,25 @@ import { getUserFromRequest } from '@/lib/auth';
 
 const prisma = new PrismaClient();
 
+async function withNeonRetry(fn) {
+  try {
+    return await fn();
+  } catch (err) {
+    const isConnectionErr =
+      err.message?.includes('ECONNRESET') ||
+      err.message?.includes('ENOTFOUND') ||
+      err.message?.includes('connect') ||
+      err.code === 'P1001' ||
+      err.code === 'P1017';
+    if (isConnectionErr) {
+      // Wait 2s then retry once
+      await new Promise(r => setTimeout(r, 2000));
+      return await fn();
+    }
+    throw err;
+  }
+}
+
 /**
  * GET /api/products
  * 
@@ -66,14 +85,18 @@ export async function GET(request) {
     }
 
     // ── Query Database ──
-    const total = await prisma.product.count({ where });
-    const products = await prisma.product.findMany({
-      where,
-      orderBy: orderBy.length > 0 ? orderBy : undefined,
-      skip: (page - 1) * limit,
-      take: limit,
-      include: { variants: true } // Include variants in response
-    });
+    const [total, products] = await withNeonRetry(() => 
+      Promise.all([
+        prisma.product.count({ where }),
+        prisma.product.findMany({
+          where,
+          orderBy: orderBy.length > 0 ? orderBy : undefined,
+          skip: (page - 1) * limit,
+          take: limit,
+          include: { variants: true }
+        })
+      ])
+    );
 
     const totalPages = Math.ceil(total / limit);
 
