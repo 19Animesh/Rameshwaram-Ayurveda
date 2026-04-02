@@ -1,7 +1,6 @@
 'use client';
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import Image from 'next/image';
 import { useParams } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { getProductEmoji, getStars, formatPrice, getDiscount } from '@/components/ProductCard';
@@ -12,6 +11,7 @@ export default function ProductDetailPage() {
   const [loading, setLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
+  const [imgFailed, setImgFailed] = useState(false);
   const { addToCart, addToWishlist, isInWishlist, removeFromWishlist } = useCart();
 
   useEffect(() => {
@@ -64,22 +64,22 @@ export default function ProductDetailPage() {
       <div className="container product-detail">
         <div className="product-detail-grid">
           <div className="product-detail-image">
-            {product.image ? (
-              <div style={{ position: 'relative', width: '100%', height: '360px' }}>
-                <Image
-                  src={product.image}
-                  alt={product.name}
-                  fill
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                  style={{ objectFit: 'contain', borderRadius: 'var(--radius-lg)' }}
-                  onError={(e) => { e.currentTarget.style.display = 'none'; e.currentTarget.parentElement.nextSibling.style.display = 'block'; }}
-                />
-              </div>
-            ) : null}
-            <span
-              className="product-emoji-large"
-              style={product.image ? { display: 'none' } : {}}
-            >{emoji}</span>
+            {product.image && !imgFailed ? (
+              <img
+                src={product.image}
+                alt={product.name}
+                style={{
+                  width: '100%',
+                  height: '360px',
+                  objectFit: 'contain',
+                  borderRadius: 'var(--radius-lg)',
+                  background: 'var(--green-50)',
+                }}
+                onError={() => setImgFailed(true)}
+              />
+            ) : (
+              <span className="product-emoji-large">{emoji}</span>
+            )}
           </div>
 
           <div className="product-detail-info">

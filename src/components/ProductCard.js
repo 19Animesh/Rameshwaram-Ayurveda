@@ -75,6 +75,7 @@ export function getDiscount(original, current) {
 export default function ProductCard({ product }) {
   const { cart, addToCart, updateQuantity, isInWishlist, addToWishlist, removeFromWishlist } = useCart();
   const [added, setAdded] = useState(false);
+  const [imgFailed, setImgFailed] = useState(false);
   
   // ── Variant Management ──
   const hasVariants = product.variants && product.variants.length > 1;
@@ -125,24 +126,17 @@ export default function ProductCard({ product }) {
   return (
     <div className="product-card fade-in">
       <div className="product-card-image">
-        {product.image ? (
+        {product.image && !imgFailed ? (
           <img
             src={product.image}
             alt={product.name}
             className="product-img"
             loading="lazy"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-              e.currentTarget.nextSibling.style.display = 'flex';
-            }}
+            onError={() => setImgFailed(true)}
           />
-        ) : null}
-        <span
-          className="product-emoji"
-          style={product.image ? { display: 'none' } : {}}
-        >
-          {emoji}
-        </span>
+        ) : (
+          <span className="product-emoji">{emoji}</span>
+        )}
         {discount > 0 && (
           <span className="product-card-badge sale">{discount}% OFF</span>
         )}
