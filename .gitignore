@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+
+# Environment variables — NEVER commit these
+.env
+.env.local
+.env.production
+.env*.local
+
+# Next.js build output
+.next/
+out/
+
+# Database files — local only
+dev.db
+dev.db-journal
+*.db
+*.db-shm
+*.db-wal
+
+# Prisma generated client
+/src/generated/prisma
+
+# Debug/temp files
+err.html
+err.txt
+sync_out.txt
+tmp-*.txt
+upload-log.txt
+seed-error.txt
+prisma_validate.txt
+catalog.xlsx.xlsx
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+*.swp
+*.swo

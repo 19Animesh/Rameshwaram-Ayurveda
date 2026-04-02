@@ -1,0 +1,256 @@
+[
+  {
+    "id": "order_0001",
+    "userId": "guest",
+    "items": [
+      {
+        "productId": "prod_001",
+        "name": "Ashwagandha Churna",
+        "brand": "Dabur",
+        "price": 180,
+        "quantity": 4,
+        "category": "immunity"
+      },
+      {
+        "productId": "prod_002",
+        "name": "Triphala Tablets",
+        "brand": "Himalaya",
+        "price": 150,
+        "quantity": 2,
+        "category": "digestion"
+      },
+      {
+        "productId": "prod_003",
+        "name": "Brahmi Vati",
+        "brand": "Baidyanath",
+        "price": 120,
+        "quantity": 1,
+        "category": "brain-health"
+      }
+    ],
+    "address": {
+      "fullName": "bnm",
+      "phone": "bnm,",
+      "street": "nm",
+      "city": "nm",
+      "state": "nm",
+      "pincode": "nm,"
+    },
+    "paymentMethod": "upi",
+    "subtotal": 1140,
+    "deliveryCharge": 0,
+    "total": 1140,
+    "status": "cancelled",
+    "statusHistory": [
+      {
+        "status": "confirmed",
+        "date": "2026-03-21T22:13:51.034Z",
+        "note": "Order confirmed"
+      },
+      {
+        "status": "cancelled",
+        "date": "2026-03-28T13:21:00.968Z",
+        "note": "Order cancelled"
+      }
+    ],
+    "createdAt": "2026-03-21T22:13:51.034Z"
+  },
+  {
+    "id": "order_0002",
+    "userId": "cmna99lxv0002l8xy772zoxk1",
+    "items": [
+      {
+        "productId": "prod_003",
+        "name": "BRAHMIGRITA",
+        "brand": "ARYA VAIDYA SALA",
+        "price": 175,
+        "quantity": 1,
+        "category": "brain-health"
+      },
+      {
+        "productId": "prod_002",
+        "name": "BRAHMI VATI 60TAB",
+        "brand": "Dhootpapeshwar",
+        "price": 240,
+        "quantity": 1,
+        "category": "brain-health"
+      },
+      {
+        "productId": "prod_001",
+        "name": "BRAHMI VATI",
+        "brand": "ARYA VAIDYA SALA",
+        "price": 155,
+        "quantity": 1,
+        "category": "brain-health"
+      }
+    ],
+    "address": {
+      "fullName": "animesh",
+      "phone": "8218345445",
+      "street": "700",
+      "city": "Bareilly",
+      "state": "Uttar Pradesh",
+      "pincode": "243001"
+    },
+    "paymentMethod": "cod",
+    "subtotal": 570,
+    "deliveryCharge": 0,
+    "total": 570,
+    "status": "confirmed",
+    "statusHistory": [
+      {
+        "status": "confirmed",
+        "date": "2026-03-28T12:56:55.510Z",
+        "note": "Order confirmed"
+      }
+    ],
+    "createdAt": "2026-03-28T12:56:55.510Z"
+  },
+  {
+    "id": "order_0003",
+    "userId": "cmnadh6od0000cdmqsxezuv59",
+    "items": [
+      {
+        "productId": "prod_001",
+        "name": "BRAHMI VATI",
+        "brand": "ARYA VAIDYA SALA",
+        "price": 155,
+        "quantity": 1,
+        "category": "brain-health"
+      },
+      {
+        "productId": "prod_004",
+        "name": "BRAHMIGRITHAM",
+        "brand": "ARYA VAIDYA SALA",
+        "price": 175,
+        "quantity": 1,
+        "category": "brain-health"
+      },
+      {
+        "productId": "prod_016",
+        "name": "ABHYARISHTAM",
+        "brand": "ARYA VAIDYA SALA",
+        "price": 90,
+        "quantity": 1,
+        "category": "digestion"
+      },
+      {
+        "productId": "prod_018",
+        "name": "AMLANT TAB",
+        "brand": "MAHARISHI",
+        "price": 30,
+        "quantity": 1,
+        "category": "digestion"
+      }
+    ],
+    "address": {
+      "fullName": "Animesh Agarwal",
+      "phone": "8218345445",
+      "street": "asdfghjkl;",
+      "city": "Bareilly",
+      "state": "Uttar Pradesh",
+      "pincode": "243001"
+    },
+    "paymentMethod": "cod",
+    "subtotal": 450,
+    "deliveryCharge": 49,
+    "total": 499,
+    "status": "processing",
+    "statusHistory": [
+      {
+        "status": "confirmed",
+        "date": "2026-03-28T17:08:02.291Z",
+        "note": "Order confirmed"
+      },
+      {
+        "status": "shipped",
+        "date": "2026-03-28T17:09:07.884Z",
+        "note": "Order shipped"
+      },
+      {
+        "status": "processing",
+        "date": "2026-03-28T17:38:01.085Z",
+        "note": "Order processing"
+      }
+    ],
+    "createdAt": "2026-03-28T17:08:02.291Z"
+  },
+  {
+    "id": "order_0004",
+    "userId": "guest",
+    "items": [
+      {
+        "productId": "prod_020",
+        "name": "AROGYAVARDHINI RASA 100T",
+        "brand": "SDM",
+        "price": 170,
+        "quantity": 1,
+        "category": "digestion"
+      },
+      {
+        "productId": "prod_021",
+        "name": "AROGYAVARDHINI VATI",
+        "brand": "ARYA VAIDYA SALA",
+        "price": 170,
+        "quantity": 1,
+        "category": "digestion"
+      }
+    ],
+    "address": {
+      "fullName": "Animesh Agarwal",
+      "phone": "9219188996",
+      "street": "700",
+      "city": "Bareilly",
+      "state": "Uttar Pradesh",
+      "pincode": "243001"
+    },
+    "paymentMethod": "cod",
+    "subtotal": 340,
+    "deliveryCharge": 49,
+    "total": 389,
+    "status": "confirmed",
+    "statusHistory": [
+      {
+        "status": "confirmed",
+        "date": "2026-03-29T08:14:40.178Z",
+        "note": "Order confirmed"
+      }
+    ],
+    "createdAt": "2026-03-29T08:14:40.178Z"
+  },
+  {
+    "id": "order_0005",
+    "userId": "cmnbhi8wc0002ovu8v64cq1n3",
+    "items": [
+      {
+        "productId": "prod_061",
+        "name": "AMRITARISHTAM",
+        "brand": "Vaidya Ratnam",
+        "price": 80,
+        "quantity": 1,
+        "category": "immunity"
+      }
+    ],
+    "address": {
+      "fullName": "raghav",
+      "phone": "9219188996",
+      "street": "700",
+      "city": "Bareilly",
+      "state": "Uttar Pradesh",
+      "pincode": "243001"
+    },
+    "paymentMethod": "cod",
+    "subtotal": 80,
+    "deliveryCharge": 49,
+    "total": 129,
+    "status": "confirmed",
+    "statusHistory": [
+      {
+        "status": "confirmed",
+        "date": "2026-03-29T08:17:31.454Z",
+        "note": "Order confirmed"
+      }
+    ],
+    "createdAt": "2026-03-29T08:17:31.454Z"
+  }
+]

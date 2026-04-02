@@ -1,0 +1,42 @@
+[
+  {
+    "id": "user_001",
+    "name": "Admin User",
+    "email": "admin@ayurvedic.com",
+    "password": "$2a$10$rQ5sH3xF0dY2gK4mN6pJ8eFqW1vL2yZ9bR3tU5xA7cI0jD6hE4wG",
+    "role": "admin",
+    "phone": "9876543210",
+    "addresses": [
+      {
+        "id": "addr_001",
+        "label": "Store",
+        "street": "123 Ayurveda Lane",
+        "city": "Pune",
+        "state": "Maharashtra",
+        "pincode": "411001",
+        "isDefault": true
+      }
+    ],
+    "createdAt": "2025-01-01T00:00:00Z"
+  },
+  {
+    "id": "user_002",
+    "name": "Priya Sharma",
+    "email": "priya@example.com",
+    "password": "$2a$10$rQ5sH3xF0dY2gK4mN6pJ8eFqW1vL2yZ9bR3tU5xA7cI0jD6hE4wG",
+    "role": "customer",
+    "phone": "9123456789",
+    "addresses": [
+      {
+        "id": "addr_002",
+        "label": "Home",
+        "street": "45 Green Park Colony",
+        "city": "Delhi",
+        "state": "Delhi",
+        "pincode": "110016",
+        "isDefault": true
+      }
+    ],
+    "createdAt": "2026-01-15T10:30:00Z"
+  }
+]
