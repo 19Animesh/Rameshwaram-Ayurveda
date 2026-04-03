@@ -3,6 +3,8 @@ import { PrismaClient } from '@prisma/client';
 import { uploadImage } from '@/lib/cloudinary';
 import { getUserFromRequest } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 const prisma = new PrismaClient();
 
 export async function GET(request, { params }) {
