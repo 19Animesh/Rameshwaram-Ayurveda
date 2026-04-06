@@ -1,31 +1,36 @@
 # Rameshwaram Ayurveda E-Commerce Platform 🌿
 
-A premium, full-stack Ayurvedic e-commerce platform built with Next.js, React, and Prisma. The platform is designed to provide a seamless shopping experience for traditional Ayurvedic medicines, featuring secure authentication, a detailed product catalog, shopping cart functionality, and a dedicated admin panel.
+A premium, full-stack Ayurvedic e-commerce platform built with **Next.js 14**, **React**, and **MongoDB**. This platform provides a seamless shopping experience for traditional Ayurvedic medicines, featuring secure authentication, a dynamic product catalog, and a robust admin management system.
 
-## 🚀 Features
+## 🚀 Key Features
 
-- **Storefront**: Browse over 350+ traditional Ayurvedic medicines organized by category (Immunity, Digestion, Brain Health, etc.).
-- **Product Details**: View comprehensive product descriptions, dosages, ingredients, and potential side effects.
-- **Authentication**: Secure OTP-based and password-less authentication flow for users.
-- **Shopping Cart & Checkout**: Add products to cart and checkout securely.
-- **Admin Dashboard**: A secure portal for the owner to track statistics, view recent orders, manage low stock, and dynamically add/edit products.
-- **Responsive Aesthetics**: Beautiful UI featuring glassmorphism, dynamic animations, and vibrant typography designed to build trust.
+- **Storefront**: Browse a curated catalog of 350+ traditional Ayurvedic medicines organized by category and brand.
+- **Dynamic Filtering**: Advanced discovery system allowing users to filter by Category (Immunity, Digestion, etc.) and Brand, with options fetched dynamically from the database.
+- **Authentication**: Secure, password-less authentication using a custom **OTP (One-Time Password)** flow.
+- **High-Performance Media**: Optimized image delivery powered by **Cloudinary**, featuring deterministic asset management and responsive loading.
+- **Secure Payments**: Integrated with **Razorpay** for a reliable and localized checkout experience.
+- **Admin Dashboard**: A centralized command center for tracking order statistics, managing inventory, and performing real-time CRUD operations on products.
+- **Architecture**: Clean, decoupled architecture using a **Service Layer** pattern to separate business logic from API routes.
+- **Aesthetics**: Premium UI design using glassmorphism, modern typography (Inter/Outfit), and smooth micro-animations.
 
 ## 🛠️ Technology Stack
 
-- **Frontend**: Next.js (App Router), React, Vanilla CSS.
-- **Backend**: Next.js API Routes.
-- **Database**: PostgreSQL (Hosted on Neon) with Prisma ORM.
-- **Storage**: Local file integration & Cloudinary support for image assets.
-- **Mail/Notifications**: Node Mailer (for OTP functionality).
-- **Payment Gateway**: Integration setups available.
+- **Framework**: [Next.js 14](https://nextjs.org/) (App Router)
+- **Database**: [MongoDB](https://www.mongodb.com/) with [Mongoose ODM](https://mongoosejs.com/)
+- **Styling**: Vanilla CSS (Custom Design System)
+- **Media Hosting**: [Cloudinary](https://cloudinary.com/)
+- **Payment Gateway**: [Razorpay](https://razorpay.com/)
+- **Validation**: [Zod](https://zod.dev/) for type-safe API schemas
+- **Notifications**: [NodeMailer](https://nodemailer.com/) (OTP Delivery)
+- **Monitoring**: [@vercel/analytics](https://vercel.com/analytics)
 
 ## 📦 Getting Started Locally
 
 ### Prerequisites
 - Node.js (v18+)
-- npm or yarn
-- A Postgres Database (like Neon)
+- MongoDB Instance (Atlas or Local)
+- Cloudinary Account
+- Razorpay API Keys
 
 ### Installation
 
@@ -41,39 +46,30 @@ A premium, full-stack Ayurvedic e-commerce platform built with Next.js, React, a
    ```
 
 3. **Set up Environment Variables:**
-   Ensure you have a `.env` file in the root directory with the following variables:
-   ```env
-   DATABASE_URL="postgresql://username:password@your-host/db?sslmode=require"
-   JWT_SECRET="your_secure_jwt_secret"
-   SMTP_EMAIL="your_email@gmail.com"
-   SMTP_PASSWORD="your_app_password"
-   SMTP_FROM_NAME="Rameshwaram Ayurveda"
-   ```
+   Create a `.env` file in the root directory and populate it based on `.env.example`.
 
-4. **Initialize the Database:**
-   ```bash
-   npx prisma generate
-   npx prisma db push
-   ```
-
-5. **Start the Development Server:**
+4. **Start the Development Server:**
    ```bash
    npm run dev
    ```
 
-6. **Access:** Open [http://localhost:3000](http://localhost:3000)
+5. **Access:** Open [http://localhost:3000](http://localhost:3000)
 
-## 🗄️ Database Syncing & Scripts
+## ⚙️ Project Structure
 
-The project includes specialized scripts to heal and sync data states:
+- `src/app/api`: Clean API routes with Zod validation.
+- `src/services`: Decoupled business logic (Orders, Products, Users).
+- `src/models`: Mongoose schemas for data persistence.
+- `src/lib`: Core utilities (Cloudinary, DB Connection, OTP Mailer).
+- `src/components`: Modular UI components with a custom design system.
 
-- `node scripts/fix-admin.js`: Repairs the core admin account if credentials or roles fail.
-- `node scripts/sync-db-images.js`: Scans the `/public/images/product` folder and flawlessly syncs local image paths with the exact product in the database.
-- `node scripts/import-products.js`: Imports bulk product records gracefully.
+## 🔒 Security & Performance
 
-## ⚙️ Architecture Notes (Neon Database Cold-Starts)
-
-The application handles serverless database states. If using the **Neon Free Tier**, the application uses a custom `withNeonRetry()` wrapper around server-side queries. This ensures that when the database enters "sleep mode" after 5 minutes of inactivity, the application will automatically wake it up, preventing hard crashes and connection timeouts.
+- **Rate Limiting**: Integrated protection against API abuse.
+- **Deterministic Images**: Automatic slug-based image naming for Cloudinary consistency.
+- **Schema Validation**: All incoming requests are validated using Zod to prevent malformed data.
+- **Vercel Analytics**: Real-time performance monitoring and user insights.
 
 ---
 *Developed for Rameshwaram Ayurveda.*
+
