@@ -4,26 +4,6 @@ import { useSearchParams } from 'next/navigation';
 import ProductCard from '@/components/ProductCard';
 import ProductSkeleton from '@/components/ProductSkeleton';
 
-// ── All available product categories for the filter sidebar ──
-const CATEGORIES = [
-  { id: 'immunity', name: 'Immunity' },
-  { id: 'digestion', name: 'Digestion' },
-  { id: 'skincare', name: 'Skincare' },
-  { id: 'brain-health', name: 'Brain Health' },
-  { id: 'pain-relief', name: 'Pain Relief' },
-  { id: 'womens-health', name: "Women's Health" },
-  { id: 'heart-health', name: 'Heart Health' },
-  { id: 'respiratory', name: 'Respiratory' },
-  { id: 'weight-management', name: 'Weight Management' },
-  { id: 'eye-health', name: 'Eye Health' },
-  { id: 'kidney-health', name: 'Kidney Health' },
-  { id: 'hair-care', name: 'Hair Care' },
-  { id: 'general-wellness', name: 'General Wellness' },
-];
-
-// ── Brand list for the filter sidebar ──
-const BRANDS = ['Dabur', 'Himalaya', 'Baidyanath', 'Patanjali', 'Zandu', 'Kama Ayurveda', 'Organic India', 'Dhootapapeshwar', 'Kashmir Organics', 'Biotique', 'Forest Essentials', 'Charak', 'Kottakkal'];
-
 // ── Number of products to load per page ──
 const PRODUCTS_PER_PAGE = 12;
 
@@ -44,6 +24,23 @@ function ProductsContent() {
   const [maxPrice, setMaxPrice] = useState('');
   const [sort, setSort] = useState('');
   const [searchQuery, setSearchQuery] = useState(searchParams.get('search') || '');
+
+  // ── Dynamic DB filter lists ──
+  const [dbCategories, setDbCategories] = useState([]);
+  const [dbBrands, setDbBrands] = useState([]);
+
+  // Fetch dynamic filters on mount
+  useEffect(() => {
+    fetch('/api/products/filters')
+      .then(res => res.json())
+      .then(data => {
+        if (data.data) {
+          setDbCategories(data.data.categories || []);
+          setDbBrands(data.data.brands || []);
+        }
+      })
+      .catch(err => console.error("Failed to load DB filters", err));
+  }, []);
 
   // ── Sync with URL search params ──
   useEffect(() => {
@@ -74,11 +71,12 @@ function ProductsContent() {
 
     try {
       const res = await fetch(`/api/products?${params}`);
-      const data = await res.json();
-      setProducts(data.products || []);
-      setTotalProducts(data.total || 0);
-      setTotalPages(data.totalPages || 1);
-      setCurrentPage(data.page || 1);
+      const result = await res.json();
+      const productData = result.data || {};
+      setProducts(productData.products || []);
+      setTotalProducts(productData.total || 0);
+      setTotalPages(productData.totalPages || 1);
+      setCurrentPage(productData.page || 1);
     } catch {
       // Silently handle errors
     } finally {
@@ -151,7 +149,8 @@ function ProductsContent() {
             {/* Category filter */}
             <div className="filter-section">
               <h3>Category</h3>
-              {CATEGORIES.map(cat => (
+              {dbCategories.length === 0 && <div style={{fontSize:'12px', color:'gray'}}>Loading categories...</div>}
+              {dbCategories.map(cat => (
                 <label key={cat.id} className="filter-option">
                   <input
                     type="radio"
@@ -167,7 +166,8 @@ function ProductsContent() {
             {/* Brand filter */}
             <div className="filter-section">
               <h3>Brand</h3>
-              {BRANDS.map(brand => (
+              {dbBrands.length === 0 && <div style={{fontSize:'12px', color:'gray'}}>Loading brands...</div>}
+              {dbBrands.map(brand => (
                 <label key={brand} className="filter-option">
                   <input
                     type="radio"

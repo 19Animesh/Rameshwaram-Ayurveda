@@ -1,10 +1,8 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import connectToDatabase from '@/lib/mongodb';
+import Order from '@/models/Order';
 import { getUserFromRequest } from '@/lib/auth';
-
 export const dynamic = 'force-dynamic';
-
-const prisma = new PrismaClient();
 
 function deserialiseOrder(order) {
   return {
@@ -19,16 +17,20 @@ function deserialiseOrder(order) {
 
 export async function GET(request, { params }) {
   try {
-    const { id } = await params;
+    const { id } = params;
 
-    const order = await prisma.order.findUnique({
-      where: { id },
-      include: { items: true },
-    });
-
-    if (!order) {
+    await connectToDatabase();
+    // Mongoose query. `items` are embedded, so no need for `include` equivalent directly, just lean()
+    const orderRaw = await Order.findById(id).lean();
+    
+    if (!orderRaw) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
+    
+    const { _id, ...rest } = orderRaw;
+    const order = { ...rest, id: _id.toString() };
+
+    // Done above
 
     // Optional: restrict to order owner or admin
     const authUser = getUserFromRequest(request);
@@ -45,7 +47,7 @@ export async function GET(request, { params }) {
 
 export async function PUT(request, { params }) {
   try {
-    const { id } = await params;
+    const { id } = params;
 
     // Only admins can update order status
     const authUser = getUserFromRequest(request);
@@ -58,16 +60,16 @@ export async function PUT(request, { params }) {
       return NextResponse.json({ error: 'Status is required' }, { status: 400 });
     }
 
-    const existing = await prisma.order.findUnique({ where: { id } });
+    await connectToDatabase();
+    
+    const existing = await Order.findById(id).lean();
     if (!existing) {
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
     }
 
-    const updated = await prisma.order.update({
-      where: { id },
-      data: { status },
-      include: { items: true },
-    });
+    const updatedRaw = await Order.findByIdAndUpdate(id, { status }, { new: true }).lean();
+    const { _id, ...rest } = updatedRaw;
+    const updated = { ...rest, id: _id.toString() };
 
     return NextResponse.json({ order: deserialiseOrder(updated) });
   } catch (error) {

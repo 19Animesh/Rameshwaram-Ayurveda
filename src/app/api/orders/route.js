@@ -1,95 +1,69 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { getOrders, placeOrder } from '@/services/orderService';
+import { orderSchema } from '@/lib/validation';
+import { successResponse, errorResponse } from '@/lib/apiResponse';
 import { getUserFromRequest } from '@/lib/auth';
+import { checkRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
-const prisma = new PrismaClient();
-
-/**
- * GET /api/orders
- * Returns orders — filtered by userId query param if provided.
- * Admin sees all orders; users see only their own.
- */
 export async function GET(request) {
   try {
+    const authUser = getUserFromRequest(request);
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get('userId');
 
-    const where = userId ? { userId } : {};
+    // 1. Literal string "undefined" is always a bug from client state
+    if (userId === 'undefined' || userId === 'null') {
+      return successResponse({ orders: [] });
+    }
 
-    const orders = await prisma.order.findMany({
-      where,
-      include: { items: true },
-      orderBy: { createdAt: 'desc' },
-    });
+    // 2. Authorization check
+    const isAdmin = authUser?.role === 'admin';
+    const finalUserId = userId || null;
 
-    // Deserialise the stored shipping address snapshot back to object
-    const serialised = orders.map(o => ({
-      ...o,
-      address: (() => {
-        try { return JSON.parse(o.shippingAddr); } catch { return o.shippingAddr; }
-      })(),
-    }));
+    // 3. Security: Regular users can only see their own orders
+    if (!isAdmin) {
+      if (!authUser) return errorResponse('Unauthorized', 401);
+      // If a userId was passed, it must match the logged-in user
+      if (finalUserId && finalUserId !== authUser.userId) {
+        return errorResponse('Forbidden', 403);
+      }
+      // If no userId passed, default to their own
+      const secureId = finalUserId || authUser.userId;
+      const orders = await getOrders(secureId);
+      return successResponse({ orders });
+    }
 
-    return NextResponse.json({ orders: serialised });
+    // 4. Admins can fetch specific user or ALL (if finalUserId is null)
+    const orders = await getOrders(finalUserId);
+    return successResponse({ orders });
   } catch (error) {
     console.error('Orders GET Error:', error);
-    return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 });
+    return errorResponse('Failed to fetch orders');
   }
 }
 
-/**
- * POST /api/orders
- * Place a new order. Decrements product stock atomically.
- */
 export async function POST(request) {
   try {
+    const ip = request.headers.get('x-forwarded-for') || 'unknown';
+    if (!checkRateLimit(ip, 10, 60000)) { // Max 10 orders per minute per IP
+      return errorResponse('Too many requests', 429);
+    }
+
     const orderData = await request.json();
-    const {
-      userId, items, address, paymentMethod,
-      paymentId, subtotal, deliveryCharge, total,
-    } = orderData;
-
-    if (!items || items.length === 0) {
-      return NextResponse.json({ error: 'Cart is empty' }, { status: 400 });
+    
+    const parsed = orderSchema.safeParse(orderData);
+    if (!parsed.success) {
+      return errorResponse('Invalid order data', 400, parsed.error.format());
     }
 
-    // Decrement stock for each item (best-effort — won't block order if product missing)
-    for (const item of items) {
-      try {
-        await prisma.product.update({
-          where: { id: item.productId },
-          data: { stock: { decrement: item.quantity } },
-        });
-      } catch {
-        // Product might have been deleted — not fatal
-      }
-    }
-
-    // Create order in database
-    const order = await prisma.order.create({
-      data: {
-        userId: userId && userId !== 'guest' ? userId : null,
-        status: 'confirmed',
-        totalAmount: total || subtotal || 0,
-        paymentMethod: paymentMethod || 'cod',
-        shippingAddr: JSON.stringify(address || {}),
-        items: {
-          create: items.map(item => ({
-            productId: item.productId,
-            name: item.name,
-            price: item.price,
-            quantity: item.quantity,
-            variantId: item.variantId || null,
-          })),
-        },
-      },
-      include: { items: true },
+    const order = await placeOrder({
+      ...parsed.data, 
+      totalAmount: parsed.data.total 
     });
 
-    // Return with address deserialized for consistency
-    return NextResponse.json({
+    return successResponse({
       order: {
         ...order,
         address: (() => {
@@ -98,10 +72,9 @@ export async function POST(request) {
         total: order.totalAmount,
         statusHistory: [{ status: 'confirmed', date: order.createdAt, note: 'Order confirmed' }],
       }
-    }, { status: 201 });
-
+    }, 201);
   } catch (error) {
     console.error('Orders POST Error:', error);
-    return NextResponse.json({ error: 'Failed to place order' }, { status: 500 });
+    return errorResponse('Failed to place order');
   }
 }

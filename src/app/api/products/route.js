@@ -1,164 +1,235 @@
-import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+// import { getProducts, createProduct } from '@/services/productService';
+// import { successResponse, errorResponse } from '@/lib/apiResponse';
+// import { logger } from '@/lib/logger';
+// import { getUserFromRequest } from '@/lib/auth';
+// import { uploadImage } from '@/lib/cloudinary';
+// import Product from '@/models/Product';
+// import connectToDatabase from '@/lib/mongodb';
+
+// export const dynamic = 'force-dynamic';
+
+// export async function GET(request) {
+//   try {
+//     const { searchParams } = new URL(request.url);
+
+//     const pageParam = parseInt(searchParams.get('page'));
+//     const limitParam = parseInt(searchParams.get('limit'));
+
+//     const productsResult = await getProducts({
+//       page: !isNaN(pageParam) && pageParam > 0 ? pageParam : 1,
+//       limit: !isNaN(limitParam) && limitParam > 0 ? limitParam : 12,
+//       search: searchParams.get('search') || undefined,
+//       category: searchParams.get('category') || undefined,
+//       brand: searchParams.get('brand') || undefined,
+//       minPrice: searchParams.get('minPrice') || undefined,
+//       maxPrice: searchParams.get('maxPrice') || undefined,
+//       sort: searchParams.get('sort') || undefined,
+//       // ✅ Only pass featured:true when explicitly requested — avoids accidental false filter
+//       ...(searchParams.get('featured') === 'true' ? { featured: true } : {}),
+//       fetchAll: searchParams.get('all') === 'true',
+//     });
+
+//     return successResponse(productsResult);
+//   } catch (error) {
+//     logger.error({ err: error }, 'Products API GET Error');
+//     const isDev = process.env.NODE_ENV !== 'production';
+//     return errorResponse(isDev ? (error.stack || error.message || String(error)) : 'Failed to fetch products', 500);
+//   }
+// }
+
+// export async function POST(request) {
+//   try {
+//     const authUser = getUserFromRequest(request);
+//     if (!authUser || authUser.role !== 'admin') {
+//       logger.warn({ authUser }, 'POST /api/products - Unauthorized attempt (check token in Authorization header)');
+//       return errorResponse('Unauthorized', 401);
+//     }
+//     logger.info({ userId: authUser.id, role: authUser.role }, 'Admin creating product');
+
+//     const data = await request.json();
+
+//     // Auto-generate ID if not provided.
+//     await connectToDatabase();
+//     const productCount = await Product.countDocuments();
+//     const id = data.id || `prod_${String(productCount + 1).padStart(3, '0')}`;
+
+//     let imageUrl = '';
+//     let imagePublicId = '';
+
+//     if (data.image) {
+//       try {
+//         // Deterministic publicId for manual uploads too!
+//         const slug = (data.name || 'product')
+//           .toString().toLowerCase().trim()
+//           .replace(/\s+/g, '_').replace(/[^\w-]+/g, '').replace(/--+/g, '_');
+//         const brandId = data.brandId || '27';
+//         const deterministicId = `${slug}_${brandId}`;
+
+//         const result = await uploadImage(data.image, 'products', deterministicId);
+//         imageUrl = result.url;
+//         imagePublicId = result.publicId;
+//       } catch (uploadErr) {
+//         logger.error({ err: uploadErr }, 'Image upload failed during POST');
+//         return errorResponse(uploadErr.message, 400);
+//       }
+//     }
+
+//     const newProduct = await createProduct({
+//       id,
+//       name: data.name,
+//       brandId: data.brandId || '27',
+//       brandName: data.brandName || 'Store Brand',
+//       category: data.category || 'general-wellness',
+//       description: data.description || '',
+//       price: data.price || 0,
+//       originalPrice: data.originalPrice || data.price || 0,
+//       stock: data.stock || 50,
+//       expiryDate: data.expiryDate || new Date(Date.now() + 31536000000).toISOString(),
+//       dosage: data.dosage || '',
+//       usage: data.usage || '',
+//       sideEffects: data.sideEffects || '',
+//       featured: data.featured || false,
+//       imageUrl: imageUrl,
+//       imagePublicId: imagePublicId,
+//       variants: []
+//     });
+
+//     return successResponse({ product: newProduct }, 201);
+//   } catch (error) {
+//     logger.error({ err: error }, 'Products API POST Error');
+//     const isDev = process.env.NODE_ENV !== 'production';
+//     return errorResponse(isDev ? (error.stack || error.message || String(error)) : 'Failed to add product', 500);
+//   }
+// }
+import { getProducts, createProduct } from '@/services/productService';
+import { successResponse, errorResponse } from '@/lib/apiResponse';
+import { getUserFromRequest } from '@/lib/auth';
 import { uploadImage } from '@/lib/cloudinary';
+import Product from '@/models/Product';
+import connectToDatabase from '@/lib/mongodb';
 
 export const dynamic = 'force-dynamic';
-import { getUserFromRequest } from '@/lib/auth';
 
-const prisma = new PrismaClient();
-
-async function withNeonRetry(fn) {
-  try {
-    return await fn();
-  } catch (err) {
-    const isConnectionErr =
-      err.message?.includes('ECONNRESET') ||
-      err.message?.includes('ENOTFOUND') ||
-      err.message?.includes('connect') ||
-      err.code === 'P1001' ||
-      err.code === 'P1017';
-    if (isConnectionErr) {
-      // Wait 2s then retry once
-      await new Promise(r => setTimeout(r, 2000));
-      return await fn();
-    }
-    throw err;
-  }
-}
-
-/**
- * GET /api/products
- * 
- * Supports filtering, sorting, and PAGINATION via SQLite:
- *   ?page=1       → page number (default: 1)
- *   ?limit=12     → products per page (default: 12)
- *   ?search=...   → search by name, brand, description
- *   ?category=... → filter by category
- *   ?brand=...    → filter by brand
- *   ?minPrice=... → minimum price filter
- *   ?maxPrice=... → maximum price filter
- *   ?sort=...     → price-asc, price-desc, rating, name
- */
+// =====================
+// GET PRODUCTS
+// =====================
 export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
 
-    // ── Extract query parameters ──
-    const search = searchParams.get('search');
-    const category = searchParams.get('category');
-    const brand = searchParams.get('brand');
-    const minPrice = searchParams.get('minPrice');
-    const maxPrice = searchParams.get('maxPrice');
-    const sort = searchParams.get('sort');
+    const pageParam = parseInt(searchParams.get('page'));
+    const limitParam = parseInt(searchParams.get('limit'));
 
-    // ── Pagination params ──
-    const fetchAll = searchParams.get('all') === 'true'; // admin bypass
-    const page = Math.max(1, parseInt(searchParams.get('page')) || 1);
-    const limit = fetchAll ? 10000 : Math.max(1, Math.min(100, parseInt(searchParams.get('limit')) || 12));
+    const productsResult = await getProducts({
+      page: !isNaN(pageParam) && pageParam > 0 ? pageParam : 1,
+      limit: !isNaN(limitParam) && limitParam > 0 ? limitParam : 12,
+      search: searchParams.get('search') || undefined,
+      category: searchParams.get('category') || undefined,
+      brand: searchParams.get('brand') || undefined,
+      minPrice: searchParams.get('minPrice') || undefined,
+      maxPrice: searchParams.get('maxPrice') || undefined,
+      sort: searchParams.get('sort') || undefined,
+      ...(searchParams.get('featured') === 'true' ? { featured: true } : {}),
+      fetchAll: searchParams.get('all') === 'true',
+    });
 
-    // ── Build Prisma WHERE clause ──
-    const featured = searchParams.get('featured');
-    const where = {};
-    if (featured === 'true') where.featured = true;
-    if (search) {
-      where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { brand: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } }
-      ];
+    console.log("✅ Products fetched:", productsResult?.products?.length || 0);
+
+    return successResponse(productsResult);
+
+  } catch (error) {
+    console.error("❌ Products API GET Error:", error);
+
+    const isDev = process.env.NODE_ENV !== 'production';
+    return errorResponse(
+      isDev ? (error.stack || error.message || String(error)) : 'Failed to fetch products',
+      500
+    );
+
+  }
+}
+
+// =====================
+// CREATE PRODUCT
+// =====================
+export async function POST(request) {
+  try {
+    const authUser = getUserFromRequest(request);
+
+    if (!authUser || authUser.role !== 'admin') {
+      console.warn("⚠️ Unauthorized attempt:", authUser);
+      return errorResponse('Unauthorized', 401);
     }
-    if (category) where.category = category;
-    if (brand) where.brand = brand;
-    if (minPrice || maxPrice) {
-      where.price = {};
-      if (minPrice) where.price.gte = Number(minPrice);
-      if (maxPrice) where.price.lte = Number(maxPrice);
-    }
 
-    // ── Build Prisma ORDER BY clause ──
-    let orderBy = [];
-    if (sort) {
-      switch (sort) {
-        case 'price-asc':  orderBy.push({ price: 'asc' }); break;
-        case 'price-desc': orderBy.push({ price: 'desc' }); break;
-        case 'rating':     orderBy.push({ rating: 'desc' }); break;
-        case 'name':       orderBy.push({ name: 'asc' }); break;
+    console.log("🛠 Admin creating product:", authUser);
+
+    const data = await request.json();
+
+    // Ensure DB connection
+    await connectToDatabase();
+
+    // Auto-generate ID
+    const productCount = await Product.countDocuments();
+    const id = data.id || `prod_${String(productCount + 1).padStart(3, '0')}`;
+
+    let imageUrl = '';
+    let imagePublicId = '';
+
+    // Handle image upload
+    if (data.image) {
+      try {
+        const slug = (data.name || 'product')
+          .toString()
+          .toLowerCase()
+          .trim()
+          .replace(/\s+/g, '_')
+          .replace(/[^\w-]+/g, '')
+          .replace(/--+/g, '_');
+
+        const brandId = data.brandId || '27';
+        const deterministicId = `${slug}_${brandId}`;
+
+        const result = await uploadImage(data.image, 'products', deterministicId);
+        imageUrl = result.url;
+        imagePublicId = result.publicId;
+      } catch (uploadErr) {
+        console.error("❌ Image upload failed:", uploadErr);
+        return errorResponse(uploadErr.message, 400);
       }
     }
 
-    // ── Query Database ──
-    const [total, products] = await withNeonRetry(() => 
-      Promise.all([
-        prisma.product.count({ where }),
-        prisma.product.findMany({
-          where,
-          orderBy: orderBy.length > 0 ? orderBy : undefined,
-          skip: (page - 1) * limit,
-          take: limit,
-          include: { variants: true }
-        })
-      ])
+    const newProduct = await createProduct({
+      id,
+      name: data.name,
+      brandId: data.brandId || '27',
+      brandName: data.brandName || 'Store Brand',
+      category: data.category || 'general-wellness',
+      description: data.description || '',
+      price: data.price || 0,
+      originalPrice: data.originalPrice || data.price || 0,
+      stock: data.stock || 50,
+      expiryDate: data.expiryDate || new Date(Date.now() + 31536000000).toISOString(),
+      dosage: data.dosage || '',
+      usage: data.usage || '',
+      sideEffects: data.sideEffects || '',
+      featured: data.featured || false,
+      imageUrl,
+      imagePublicId,
+      variants: []
+    });
+
+    console.log("✅ Product created:", newProduct?.id);
+
+    return successResponse({ product: newProduct }, 201);
+
+  } catch (error) {
+    console.error("❌ Products API POST Error:", error);
+
+    const isDev = process.env.NODE_ENV !== 'production';
+    return errorResponse(
+      isDev ? (error.stack || error.message || String(error)) : 'Failed to add product',
+      500
     );
 
-    const totalPages = Math.ceil(total / limit);
-
-    return NextResponse.json({
-      products,
-      total,
-      page,
-      limit,
-      totalPages,
-    });
-  } catch (error) {
-    console.error('Products API Error:', error);
-    return NextResponse.json({ error: 'Failed to fetch products' }, { status: 500 });
   }
 }
-
-/**
- * POST /api/products
- * Add a new product — Admin only.
- */
-export async function POST(request) {
-  try {
-    // Admin guard
-    const authUser = getUserFromRequest(request);
-    if (!authUser || authUser.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const data = await request.json();
-    
-    // Auto-generate ID if not provided
-    const productCount = await prisma.product.count();
-    const id = data.id || `prod_${String(productCount + 1).padStart(3, '0')}`;
-
-    const newProduct = await prisma.product.create({
-      data: {
-        id,
-        name: data.name,
-        brand: data.brand || 'Store Brand',
-        category: data.category || 'general-wellness',
-        description: data.description || '',
-        price: data.price || 0,
-        originalPrice: data.originalPrice || data.price || 0,
-        stock: data.stock || 50,
-        expiryDate: data.expiryDate || new Date(Date.now() + 31536000000).toISOString(),
-        dosage: data.dosage || '',
-        howToConsume: data.howToConsume || '',
-        sideEffects: data.sideEffects || '',
-        featured: data.featured || false,
-        image: data.image?.startsWith('data:image/') 
-                   ? await uploadImage(data.image) 
-                   : (data.image || `/images/placeholder.jpg`)
-      },
-      include: { variants: true }
-    });
-    
-    return NextResponse.json({ product: newProduct }, { status: 201 });
-  } catch (error) {
-    console.error('Products Create API Error:', error);
-    return NextResponse.json({ error: 'Failed to add product' }, { status: 500 });
-  }
-}
-

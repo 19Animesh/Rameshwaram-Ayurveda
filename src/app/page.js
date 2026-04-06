@@ -3,18 +3,20 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import ProductCard from '@/components/ProductCard';
 
-const CATEGORIES = [
-  { id: 'immunity', name: 'Immunity', emoji: '🛡️' },
-  { id: 'digestion', name: 'Digestion', emoji: '🫄' },
-  { id: 'skincare', name: 'Skincare', emoji: '✨' },
-  { id: 'brain-health', name: 'Brain Health', emoji: '🧠' },
-  { id: 'pain-relief', name: 'Pain Relief', emoji: '💆' },
-  { id: 'womens-health', name: "Women's Health", emoji: '🌸' },
-  { id: 'heart-health', name: 'Heart Health', emoji: '❤️' },
-  { id: 'respiratory', name: 'Respiratory', emoji: '🫁' },
-  { id: 'hair-care', name: 'Hair Care', emoji: '💇' },
-  { id: 'eye-health', name: 'Eye Health', emoji: '👁️' },
-];
+// Default fallback for emojis if no dynamic matching works
+const categoryEmojis = {
+  'immunity': '🛡️',
+  'digestive-health': '🫄',
+  'skin-care': '✨',
+  'brain-health': '🧠',
+  'joint-care': '💆',
+  'womens-health': '🌸',
+  'heart-health': '❤️',
+  'respiratory-care': '🫁',
+  'hair-care': '💇',
+  'eye-health': '👁️',
+  'general-wellness': '🌱'
+};
 
 const SYMPTOMS = [
   { name: 'Low Immunity', emoji: '🤒', search: 'immunity' },
@@ -31,11 +33,25 @@ export default function HomePage() {
   const [featured, setFeatured] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [dbCategories, setDbCategories] = useState([]);
+
   useEffect(() => {
+    // Fetch Featured Products
     fetch('/api/products?featured=true')
       .then(res => res.json())
-      .then(data => { setFeatured(data.products || []); setLoading(false); })
+      .then(result => { 
+        setFeatured(result.data?.products || []); 
+        setLoading(false); 
+      })
       .catch(() => setLoading(false));
+
+    // Fetch Dynamic Categories
+    fetch('/api/products/filters')
+      .then(res => res.json())
+      .then(result => {
+        if (result.data) setDbCategories(result.data.categories || []);
+      })
+      .catch();
   }, []);
 
   return (
@@ -97,12 +113,13 @@ export default function HomePage() {
             <div className="section-line"></div>
           </div>
           <div className="categories-grid">
-            {CATEGORIES.map(cat => (
+            {dbCategories.map(cat => (
               <Link key={cat.id} href={`/products?category=${cat.id}`} className="category-card">
-                <span className="cat-emoji">{cat.emoji}</span>
+                <span className="cat-emoji">{categoryEmojis[cat.id] || '🩺'}</span>
                 <div className="cat-name">{cat.name}</div>
               </Link>
             ))}
+            {dbCategories.length === 0 && <span style={{color: "gray"}}>Loading live categories...</span>}
           </div>
         </div>
       </section>

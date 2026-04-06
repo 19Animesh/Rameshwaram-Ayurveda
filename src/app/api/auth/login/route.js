@@ -1,117 +1,116 @@
-import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { z } from 'zod';
 import bcrypt from 'bcryptjs';
+import { getUserByEmailOrPhone } from '@/services/userService';
 import { sendOtpEmail } from '@/lib/mailer';
 import { signToken } from '@/lib/auth';
+import { successResponse, errorResponse } from '@/lib/apiResponse';
 
-const prisma = new PrismaClient();
+import { checkRateLimit } from '@/lib/rateLimit';
+import OTP from '@/models/OTP';
+import connectToDatabase from '@/lib/mongodb';
 
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-/**
- * Neon free-tier databases sleep after inactivity.
- * This wrapper retries the DB call once after a short delay if it fails
- * on the first attempt (cold-start wake-up).
- */
-async function withNeonRetry(fn) {
-  try {
-    return await fn();
-  } catch (err) {
-    const isConnectionErr =
-      err.message?.includes('ECONNRESET') ||
-      err.message?.includes('ENOTFOUND') ||
-      err.message?.includes('connect') ||
-      err.code === 'P1001' || // Prisma: can't reach database
-      err.code === 'P1017';  // Prisma: server closed connection
-    if (isConnectionErr) {
-      // Wait 2s then retry once — this wakes up the Neon instance
-      await new Promise(r => setTimeout(r, 2000));
-      return await fn();
-    }
-    throw err;
-  }
-}
+const loginSchema = z.object({
+  identifier: z.string().optional(),
+  email: z.string().optional(),
+  password: z.string().min(1, 'Password is required'),
+});
 
 export async function POST(request) {
   try {
-    const { identifier, email, password } = await request.json();
+    const ip = request.headers.get('x-forwarded-for') || 'unknown';
+    if (!checkRateLimit(ip, 5, 60000)) { // Max 5 login attempts per minute per IP
+      return errorResponse('Too many login attempts', 429);
+    }
+
+    const data = await request.json();
+    const parsed = loginSchema.safeParse(data);
+
+    if (!parsed.success) {
+      return errorResponse('Validation error', 400, parsed.error.format());
+    }
+
+    const { identifier, email, password } = parsed.data;
     const loginId = identifier || email;
 
-    if (!loginId || !password) {
-      return NextResponse.json({ error: 'Email/Phone and password are required' }, { status: 400 });
+    if (!loginId) {
+      return errorResponse('Email or Phone is required', 400);
     }
 
     const isEmail = loginId.includes('@');
-
-    // Use retry wrapper so Neon cold-starts don't fail the login
-    const user = await withNeonRetry(() =>
-      prisma.user.findFirst({
-        where: isEmail ? { email: loginId } : { phone: loginId }
-      })
-    );
+    const user = await getUserByEmailOrPhone(loginId);
 
     if (!user) {
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+      return errorResponse('Invalid credentials', 401);
     }
 
-    // Verify password
     const validPassword = await bcrypt.compare(password, user.passwordHash);
-
     if (!validPassword) {
-      return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 });
+      return errorResponse('Invalid credentials', 401);
     }
 
-    // Admin accounts skip OTP — they are always considered verified
     const role = user.role || 'user';
     if (role === 'admin') {
       const token = signToken({ userId: user.id, email: user.email, phone: user.phone, role });
       const { passwordHash: _, ...safeUser } = user;
       safeUser.role = role;
-      return NextResponse.json({ user: safeUser, token });
+      
+      const response = successResponse({ user: safeUser, token });
+      response.cookies.set('token', token, {
+        httpOnly: true, // Prevents XSS script access to Token
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60, // 7 days session
+        path: '/'
+      });
+      return response;
     }
 
-    // Regular users: check email/phone verification
     const isVerified = isEmail ? user.isEmailVerified : user.isPhoneVerified;
 
     if (!isVerified) {
       const otpCode = generateOTP();
 
-      await withNeonRetry(() =>
-        prisma.oTP.create({
-          data: {
-            emailOrPhone: loginId,
-            code: otpCode,
-            expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-          },
-        })
-      );
+      await connectToDatabase();
+      await OTP.create({
+        emailOrPhone: loginId,
+        code: otpCode,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      });
 
       if (isEmail) {
         try {
           await sendOtpEmail(loginId, otpCode);
         } catch (e) {
-          console.error('Login OTP email failed:', e.message);
+          console.warn('Login OTP email failed', e);
         }
       }
 
-      return NextResponse.json({
+      return successResponse({
         message: 'Account not verified. OTP sent.',
         requireVerification: true,
         identifier: loginId,
-      }, { status: 200 });
+      }, 200);
     }
 
-    // Generate JWT
     const token = signToken({ userId: user.id, email: user.email, phone: user.phone, role });
-
     const { passwordHash: _, ...safeUser } = user;
     safeUser.role = role;
 
-    return NextResponse.json({ user: safeUser, token });
+    const response = successResponse({ user: safeUser, token });
+    response.cookies.set('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60, // 7 days session
+      path: '/'
+    });
+    return response;
   } catch (error) {
     console.error('Login Error:', error);
-    return NextResponse.json({ error: 'Login failed. Please try again in a moment.' }, { status: 500 });
+    return errorResponse('Login failed. Please try again in a moment.');
   }
 }

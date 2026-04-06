@@ -14,12 +14,14 @@ export default function Header() {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [cartBounce, setCartBounce] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const prevCartCount = useRef(cartCount);
   const searchRef = useRef(null);
   const router = useRouter();
 
   // Trigger bounce animation whenever an item is added to cart
   useEffect(() => {
+    setMounted(true);
     if (cartCount > prevCartCount.current) {
       setCartBounce(true);
       const t = setTimeout(() => setCartBounce(false), 600);
@@ -48,8 +50,9 @@ export default function Header() {
     const timer = setTimeout(async () => {
       try {
         const res = await fetch(`/api/products?search=${encodeURIComponent(searchQuery)}`);
-        const data = await res.json();
-        setSuggestions(data.products?.slice(0, 5) || []);
+        const result = await res.json();
+        const productData = result.data || {};
+        setSuggestions(productData.products?.slice(0, 5) || []);
         setShowSuggestions(true);
       } catch { setSuggestions([]); }
     }, 300);
@@ -94,7 +97,7 @@ export default function Header() {
                 >
                   <div>
                     <div className="suggestion-name">{product.name}</div>
-                    <div className="suggestion-brand">{product.brand} &middot; ₹{product.price}</div>
+                    <div className="suggestion-brand">{product.brandName} &middot; ₹{product.price}</div>
                   </div>
                 </Link>
               ))}
@@ -117,26 +120,30 @@ export default function Header() {
           <Link href="/cart" className="nav-link">
             <span className={cartBounce ? 'cart-bounce' : ''} style={{ display: 'inline-block' }}>🛒</span>
             <span>Cart</span>
-            {cartCount > 0 && <span className="nav-badge">{cartCount}</span>}
+            {mounted && cartCount > 0 && <span className="nav-badge">{cartCount}</span>}
           </Link>
-          {user ? (
-            <>
-              <Link href="/account" className="nav-link">
-                👤 <span>{user.name?.split(' ')[0]}</span>
-              </Link>
-              {isAdmin && (
-                <Link href="/admin" className="nav-link">
-                  ⚙️ <span>Admin</span>
+          {mounted ? (
+            user ? (
+              <>
+                <Link href="/account" className="nav-link">
+                  👤 <span>{user.name?.split(' ')[0]}</span>
                 </Link>
-              )}
-              <button onClick={() => { logout(); clearCart(); }} className="nav-link" style={{ background: 'none' }}>
-                🚪 <span>Logout</span>
-              </button>
-            </>
+                {isAdmin && (
+                  <Link href="/admin" className="nav-link">
+                    ⚙️ <span>Admin</span>
+                  </Link>
+                )}
+                <button onClick={() => { logout(); clearCart(); }} className="nav-link" style={{ background: 'none' }}>
+                  🚪 <span>Logout</span>
+                </button>
+              </>
+            ) : (
+              <Link href="/auth/login" className="btn btn-primary btn-sm">
+                Sign In
+              </Link>
+            )
           ) : (
-            <Link href="/auth/login" className="btn btn-primary btn-sm">
-              Sign In
-            </Link>
+            <div style={{ width: 68, height: 36 }} />
           )}
         </nav>
       </div>

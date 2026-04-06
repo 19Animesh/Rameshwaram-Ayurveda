@@ -6,9 +6,9 @@ import { useAuth } from '@/context/AuthContext';
 import { formatPrice } from '@/components/ProductCard';
 
 const EMPTY_PRODUCT = {
-  name: '', brand: '', description: '', price: '', originalPrice: '',
-  category: 'immunity', stock: '', dosage: '', howToConsume: '',
-  sideEffects: '', expiryDate: '', image: '', featured: false,
+  name: '', brandId: '27', brandName: '', description: '', price: '', originalPrice: '',
+  category: 'general-wellness', stock: '', dosage: '', usage: '',
+  sideEffects: '', expiryDate: '', imageUrl: '', featured: false,
 };
 
 // Helper: get auth headers with Bearer token
@@ -52,9 +52,14 @@ export default function AdminPage() {
         fetch('/api/products?all=true'),   // GET is public — no auth needed
         fetch('/api/orders', { headers: authHeaders() }),
       ]);
-      const [statsData, productsData, ordersData] = await Promise.all([
+      const [statsFull, productsFull, ordersFull] = await Promise.all([
         statsRes.json(), productsRes.json(), ordersRes.json(),
       ]);
+      
+      const statsData = statsFull.data || {};
+      const productsData = productsFull.data || {};
+      const ordersData = ordersFull.data || {};
+
       setStats(statsData);
       setProducts(productsData.products || []);
       setOrders(ordersData.orders || []);
@@ -96,7 +101,7 @@ export default function AdminPage() {
         
         // Compress as WebP for tiny base64
         const compressedBase64 = canvas.toDataURL('image/webp', 0.8);
-        setForm(f => ({ ...f, image: compressedBase64 }));
+        setForm(f => ({ ...f, imageUrl: compressedBase64 }));
       };
       img.src = event.target.result;
     };
@@ -106,12 +111,31 @@ export default function AdminPage() {
   // ── Save product (add or edit) ──
   const handleSave = async (e) => {
     e.preventDefault();
+    
+    // Build payload - separate 'image' (for upload) from 'imageUrl' (already a Cloudinary URL)
+    const isBase64 = form.imageUrl?.startsWith('data:image/');
     const payload = {
-      ...form,
+      name: form.name,
+      brandId: form.brandId || '27',
+      brandName: form.brandName,
+      category: form.category,
+      description: form.description,
       price: Number(form.price),
       originalPrice: Number(form.originalPrice) || Number(form.price),
       stock: Number(form.stock),
+      dosage: form.dosage,
+      usage: form.usage,
+      sideEffects: form.sideEffects,
+      expiryDate: form.expiryDate,
+      featured: form.featured,
+      // Only send 'image' (triggers Cloudinary upload) if it's base64.
+      // Otherwise send 'imageUrl' directly (already a hosted URL).
+      ...(isBase64
+        ? { image: form.imageUrl }
+        : { imageUrl: form.imageUrl }
+      ),
     };
+
     try {
       if (editingProduct) {
         const res = await fetch(`/api/products/${editingProduct.id}`, {
@@ -161,18 +185,19 @@ export default function AdminPage() {
   const handleEdit = (product) => {
     setEditingProduct(product);
     setForm({
-      name: product.name,
-      brand: product.brand,
-      description: product.description,
-      price: String(product.price),
-      originalPrice: String(product.originalPrice),
-      category: product.category,
-      stock: String(product.stock),
+      name: product.name || '',
+      brandId: product.brandId || '27',        // ✅ was: brand: product.brand (field doesn't exist)
+      brandName: product.brandName || '',       // ✅ added: missing from previous version
+      description: product.description || '',
+      price: String(product.price || ''),
+      originalPrice: String(product.originalPrice || product.price || ''),
+      category: product.category || 'general-wellness',
+      stock: String(product.stock || ''),
       dosage: product.dosage || '',
-      howToConsume: product.howToConsume || '',
+      usage: product.usage || '',
       sideEffects: product.sideEffects || '',
       expiryDate: product.expiryDate ? product.expiryDate.split('T')[0] : '',
-      image: product.image || '',
+      imageUrl: product.imageUrl || '',
       featured: product.featured || false,
     });
     setShowModal(true);
@@ -208,7 +233,7 @@ export default function AdminPage() {
 
   const filteredProducts = products.filter(p =>
     p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (p.brandName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     p.category.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
@@ -342,9 +367,9 @@ export default function AdminPage() {
                       {filteredProducts.map(product => (
                         <tr key={product.id}>
                           <td>
-                            {product.image ? (
+                            {product.imageUrl ? (
                               <img
-                                src={product.image}
+                                src={product.imageUrl}
                                 alt={product.name}
                                 style={{ width: 48, height: 48, objectFit: 'contain', borderRadius: 6, background: '#f5f5f5', border: '1px solid #e0e0e0' }}
                                 onError={e => { e.target.style.display = 'none'; }}
@@ -354,7 +379,7 @@ export default function AdminPage() {
                             )}
                           </td>
                           <td style={{ fontWeight: 600, maxWidth: 180 }}>{product.name}</td>
-                          <td style={{ fontSize: 13 }}>{product.brand}</td>
+                          <td style={{ fontSize: 13 }}>{product.brandName}</td>
                           <td><span className="badge badge-green">{product.category}</span></td>
                           <td style={{ fontWeight: 600 }}>{formatPrice(product.price)}</td>
                           <td>
@@ -481,8 +506,8 @@ export default function AdminPage() {
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     overflow: 'hidden', background: '#f8f5f0', flexShrink: 0
                   }}>
-                    {form.image ? (
-                      <img src={form.image} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                    {form.imageUrl ? (
+                      <img src={form.imageUrl} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                     ) : (
                       <span style={{ fontSize: 32 }}>📷</span>
                     )}
@@ -498,12 +523,12 @@ export default function AdminPage() {
                     <input
                       className="form-input"
                       placeholder="or paste image URL: https://..."
-                      value={form.image.startsWith('data:') ? '' : form.image}
-                      onChange={e => setForm(f => ({ ...f, image: e.target.value }))}
+                      value={form.imageUrl?.startsWith('data:') ? '' : form.imageUrl}
+                      onChange={e => setForm(f => ({ ...f, imageUrl: e.target.value }))}
                       style={{ marginTop: 4 }}
                     />
-                    {form.image && (
-                      <button type="button" onClick={() => setForm(f => ({ ...f, image: '' }))}
+                    {form.imageUrl && (
+                      <button type="button" onClick={() => setForm(f => ({ ...f, imageUrl: '' }))}
                         style={{ background: 'none', border: 'none', color: '#e53e3e', cursor: 'pointer', fontSize: 12, marginTop: 4 }}>
                         ✕ Remove image
                       </button>
@@ -518,8 +543,8 @@ export default function AdminPage() {
                   <input className="form-input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} required />
                 </div>
                 <div className="form-group">
-                  <label>Brand *</label>
-                  <input className="form-input" value={form.brand} onChange={e => setForm(f => ({ ...f, brand: e.target.value }))} required />
+                  <label>Brand Name *</label>
+                  <input className="form-input" value={form.brandName} onChange={e => setForm(f => ({ ...f, brandName: e.target.value }))} required />
                 </div>
               </div>
 
@@ -544,17 +569,19 @@ export default function AdminPage() {
                   <label>Category *</label>
                   <select className="form-select" value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}>
                     <option value="immunity">Immunity</option>
-                    <option value="digestion">Digestion</option>
-                    <option value="skincare">Skincare</option>
+                    <option value="digestive-health">Digestive Health</option>
+                    <option value="skin-care">Skin Care</option>
                     <option value="brain-health">Brain Health</option>
-                    <option value="pain-relief">Pain Relief</option>
+                    <option value="joint-care">Joint Care</option>
                     <option value="womens-health">Women's Health</option>
                     <option value="heart-health">Heart Health</option>
-                    <option value="respiratory">Respiratory</option>
+                    <option value="respiratory-care">Respiratory</option>
                     <option value="hair-care">Hair Care</option>
                     <option value="eye-health">Eye Health</option>
                     <option value="weight-management">Weight Management</option>
                     <option value="kidney-health">Kidney Health</option>
+                    <option value="diabetes-care">Diabetes Care</option>
+                    <option value="ayurvedic-medicine">Ayurvedic Medicine</option>
                     <option value="general-wellness">General Wellness</option>
                   </select>
                 </div>
@@ -569,8 +596,8 @@ export default function AdminPage() {
                 <input className="form-input" value={form.dosage} onChange={e => setForm(f => ({ ...f, dosage: e.target.value }))} placeholder="e.g. 1-2 tablets twice daily" />
               </div>
               <div className="form-group">
-                <label>How to Consume</label>
-                <textarea className="form-input" rows={2} value={form.howToConsume} onChange={e => setForm(f => ({ ...f, howToConsume: e.target.value }))} />
+                <label>Usage / How to Consume</label>
+                <textarea className="form-input" rows={2} value={form.usage} onChange={e => setForm(f => ({ ...f, usage: e.target.value }))} />
               </div>
               <div className="form-group">
                 <label>Side Effects</label>

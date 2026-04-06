@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
 import { getProductEmoji, getStars, formatPrice, getDiscount } from '@/components/ProductCard';
+import { optimizeImageUrl, getBlurUrl } from '@/lib/cloudinary-client';
 
 export default function ProductDetailPage() {
   const { id } = useParams();
@@ -12,12 +13,13 @@ export default function ProductDetailPage() {
   const [quantity, setQuantity] = useState(1);
   const [added, setAdded] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
   const { addToCart, addToWishlist, isInWishlist, removeFromWishlist } = useCart();
 
   useEffect(() => {
     fetch(`/api/products/${id}`)
       .then(res => res.json())
-      .then(data => { setProduct(data.product); setLoading(false); })
+      .then(result => { setProduct(result.data?.product || result.data); setLoading(false); })
       .catch(() => setLoading(false));
   }, [id]);
 
@@ -64,26 +66,43 @@ export default function ProductDetailPage() {
       <div className="container product-detail">
         <div className="product-detail-grid">
           <div className="product-detail-image">
-            {product.image && !imgFailed ? (
-              <img
-                src={product.image}
-                alt={product.name}
-                style={{
-                  width: '100%',
-                  height: '360px',
-                  objectFit: 'contain',
-                  borderRadius: 'var(--radius-lg)',
-                  background: 'var(--green-50)',
-                }}
-                onError={() => setImgFailed(true)}
-              />
+            {product.imageUrl && product.imageUrl.startsWith('http') && !imgFailed ? (
+              <div style={{ position: 'relative', width: '100%', height: '360px', overflow: 'hidden', borderRadius: 'var(--radius-lg)', background: 'var(--green-50)' }}>
+                {/* Blur Placeholder */}
+                {!isLoaded && (
+                  <img
+                    src={getBlurUrl(product.imageUrl)}
+                    alt=""
+                    style={{
+                      position: 'absolute',
+                      top: 0, left: 0, width: '100%', height: '100%',
+                      objectFit: 'contain',
+                      filter: 'blur(30px)',
+                      transform: 'scale(1.2)',
+                    }}
+                  />
+                )}
+                <img
+                  src={optimizeImageUrl(product.imageUrl, { width: 800, height: 800 })}
+                  alt={product.name}
+                  onLoad={() => setIsLoaded(true)}
+                  onError={() => setImgFailed(true)}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'contain',
+                    opacity: isLoaded ? 1 : 0,
+                    transition: 'opacity 0.5s ease-in-out',
+                  }}
+                />
+              </div>
             ) : (
               <span className="product-emoji-large">{emoji}</span>
             )}
           </div>
 
           <div className="product-detail-info">
-            <div className="product-detail-brand">{product.brand}</div>
+            <div className="product-detail-brand">{product.brandName}</div>
             <h1>{product.name}</h1>
             
             <div className="product-card-rating" style={{ margin: 'var(--space-md) 0' }}>
@@ -115,7 +134,7 @@ export default function ProductDetailPage() {
 
             <div className="detail-section">
               <h3>🥄 How to Consume</h3>
-              <p>{product.howToConsume}</p>
+              <p>{product.usage}</p>
             </div>
 
 

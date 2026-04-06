@@ -1,68 +1,55 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import connectToDatabase from '@/lib/mongodb';
+import User from '@/models/User';
+import OTP from '@/models/OTP';
 import { signToken } from '@/lib/auth';
-
-const prisma = new PrismaClient();
+import { successResponse, errorResponse } from '@/lib/apiResponse';
 
 export async function POST(request) {
   try {
     const { identifier, otp } = await request.json();
 
     if (!identifier || !otp) {
-      return NextResponse.json(
-        { error: 'Identifier (email/phone) and OTP are required' },
-        { status: 400 }
-      );
+      return errorResponse('Identifier (email/phone) and OTP are required', 400);
     }
 
+    await connectToDatabase();
+    
     // 1. Find a valid, unused, non-expired OTP
-    const validOtp = await prisma.oTP.findFirst({
-      where: {
-        emailOrPhone: identifier,
-        code: otp,
-        used: false,
-        expiresAt: { gt: new Date() },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const validOtp = await OTP.findOne({
+      emailOrPhone: identifier,
+      code: otp,
+      used: false,
+      expiresAt: { $gt: new Date() },
+    }).sort({ createdAt: -1 });
 
     if (!validOtp) {
-      return NextResponse.json(
-        { error: 'Invalid or expired OTP. Please request a new one.' },
-        { status: 400 }
-      );
+      return errorResponse('Invalid or expired OTP. Please request a new one.', 400);
     }
 
-    // 2. Find the user before starting the transaction
+    // 2. Find the user
     const isEmail = identifier.includes('@');
-    const existingUser = await prisma.user.findFirst({
-      where: isEmail ? { email: identifier } : { phone: identifier },
-    });
+    const existingUser = await User.findOne(
+      isEmail ? { email: identifier } : { phone: identifier }
+    );
 
     if (!existingUser) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 });
+      return errorResponse('User not found', 404);
     }
 
     const updateData = isEmail
       ? { isEmailVerified: true }
       : { isPhoneVerified: true };
 
-    // 3. Use a transaction: mark OTP as used AND verify user atomically.
-    //    If either step fails, both are rolled back — so the user can retry.
-    const [, user] = await prisma.$transaction([
-      prisma.oTP.update({
-        where: { id: validOtp.id },
-        data: { used: true },
-      }),
-      prisma.user.update({
-        where: { id: existingUser.id },
-        data: updateData,
-      }),
-    ]);
+    // 3. Sequential update
+    await OTP.findByIdAndUpdate(validOtp._id, { used: true });
+    
+    const userRaw = await User.findByIdAndUpdate(existingUser._id, updateData, { new: true }).lean();
+    const user = { ...userRaw, id: userRaw._id.toString() };
 
     // 4. Clean up expired OTPs for this identifier (housekeeping)
-    await prisma.oTP.deleteMany({
-      where: { emailOrPhone: identifier, expiresAt: { lt: new Date() } },
+    await OTP.deleteMany({
+      emailOrPhone: identifier, expiresAt: { $lt: new Date() }
     }).catch(() => {});
 
     // 5. Generate JWT Token using centralized helper
@@ -70,9 +57,17 @@ export async function POST(request) {
 
     const { passwordHash: _, ...safeUser } = user;
 
-    return NextResponse.json({ user: safeUser, token }, { status: 200 });
+    const response = successResponse({ user: safeUser, token });
+    response.cookies.set('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60,
+      path: '/'
+    });
+    return response;
   } catch (error) {
     console.error('OTP Verification Error:', error);
-    return NextResponse.json({ error: 'Verification failed' }, { status: 500 });
+    return errorResponse('Verification failed');
   }
 }

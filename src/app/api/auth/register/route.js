@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import connectToDatabase from '@/lib/mongodb';
+import User from '@/models/User';
+import OTP from '@/models/OTP';
 import bcrypt from 'bcryptjs';
 import { sendOtpEmail } from '@/lib/mailer';
-
-const prisma = new PrismaClient();
+import { successResponse, errorResponse } from '@/lib/apiResponse';
 
 // Helper to generate a 6-digit OTP
 function generateOTP() {
@@ -15,20 +16,22 @@ export async function POST(request) {
     const { name, email, password, phone } = await request.json();
     
     if (!name || (!email && !phone) || !password) {
-      return NextResponse.json({ error: 'Name, password, and either email or phone are required' }, { status: 400 });
+      return errorResponse('Name, password, and either email or phone are required', 400);
     }
 
     // Check if user already exists
+    await connectToDatabase();
+    
     const query = [];
     if (email) query.push({ email });
     if (phone) query.push({ phone });
     
-    const existingUser = await prisma.user.findFirst({
-      where: { OR: query }
+    const existingUser = await User.findOne({
+      $or: query
     });
 
     if (existingUser) {
-      return NextResponse.json({ error: 'Email or phone already registered' }, { status: 409 });
+      return errorResponse('Email or phone already registered', 409);
     }
     
     // Hash password
@@ -36,27 +39,23 @@ export async function POST(request) {
     const passwordHash = await bcrypt.hash(password, saltRounds);
     
     // Create unverified user
-    const newUser = await prisma.user.create({
-      data: {
-        name,
-        email: email || '',
-        phone: phone || null,
-        passwordHash,
-        isEmailVerified: false,
-        isPhoneVerified: false
-      }
+    const newUser = await User.create({
+      name,
+      email: email || '',
+      phone: phone || null,
+      passwordHash,
+      isEmailVerified: false,
+      isPhoneVerified: false
     });
     
     // Generate and save OTP
     const otpCode = generateOTP();
     const identifier = email || phone;
     
-    await prisma.oTP.create({
-      data: {
-        emailOrPhone: identifier,
-        code: otpCode,
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes expiry
-      }
+    await OTP.create({
+      emailOrPhone: identifier,
+      code: otpCode,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes expiry
     });
     
     // Send OTP via email
@@ -69,14 +68,14 @@ export async function POST(request) {
       }
     }
     
-    return NextResponse.json({ 
+    return successResponse({ 
       message: 'Registration successful. OTP sent.',
       requireVerification: true,
       identifier 
-    }, { status: 201 });
+    }, 201);
     
   } catch (error) {
     console.error('Registration Error:', error);
-    return NextResponse.json({ error: 'Registration failed' }, { status: 500 });
+    return errorResponse('Registration failed');
   }
 }

@@ -5,44 +5,82 @@ import { useCart } from '@/context/CartContext';
 
 const PRODUCT_EMOJIS = {
   'immunity': '🛡️',
-  'digestion': '🫄',
-  'skincare': '✨',
+  'digestive-health': '🫄',
+  'skin-care': '✨',
   'brain-health': '🧠',
-  'pain-relief': '💆',
+  'joint-care': '💆',
   'womens-health': '🌸',
   'heart-health': '❤️',
-  'respiratory': '🫁',
+  'respiratory-care': '🫁',
   'weight-management': '⚖️',
   'eye-health': '👁️',
   'kidney-health': '🫘',
   'hair-care': '💇',
+  'ayurvedic-medicine': '💊',
+  'diabetes-care': '🩸',
+  'general-wellness': '🌿',
 };
 
 export function getProductEmoji(category) {
   return PRODUCT_EMOJIS[category] || '🌿';
 }
 
-// Reusable thumbnail: shows real product photo, falls back to emoji
+import { optimizeImageUrl, getBlurUrl } from '@/lib/cloudinary-client';
+
 export function ProductImage({ product, size = 56, style = {} }) {
   const emoji = getProductEmoji(product?.category);
+  const hasValidImage = product?.imageUrl && product.imageUrl.startsWith('http');
   const [imgFailed, setImgFailed] = useState(false);
-  if (product?.image && !imgFailed) {
+  const [isLoaded, setIsLoaded] = useState(false);
+  
+  if (hasValidImage && !imgFailed) {
+    const optimizedUrl = optimizeImageUrl(product.imageUrl, { width: size * 2, height: size * 2 }); // Double size for retina
+    const blurUrl = getBlurUrl(product.imageUrl);
+
     return (
-      <img
-        src={product.image}
-        alt={product.name}
-        width={size}
-        height={size}
-        loading="lazy"
-        onError={() => setImgFailed(true)}
-        style={{
-          width: size, height: size,
-          objectFit: 'contain', objectPosition: 'center',
-          borderRadius: 8, background: 'var(--green-50)',
-          padding: 4, flexShrink: 0,
-          ...style
-        }}
-      />
+      <div style={{ 
+        position: 'relative', 
+        width: size, 
+        height: size, 
+        borderRadius: 8, 
+        overflow: 'hidden',
+        background: 'var(--green-50)',
+        flexShrink: 0,
+        ...style 
+      }}>
+        {/* Blur Placeholder */}
+        {blurUrl && !isLoaded && (
+          <img
+            src={blurUrl}
+            alt=""
+            style={{
+              position: 'absolute',
+              top: 0, left: 0, width: '100%', height: '100%',
+              objectFit: 'contain',
+              filter: 'blur(10px)',
+              transform: 'scale(1.1)',
+            }}
+          />
+        )}
+        
+        {/* Main Image */}
+        <img
+          src={optimizedUrl}
+          alt={product.name}
+          width={size}
+          height={size}
+          loading="lazy"
+          onLoad={() => setIsLoaded(true)}
+          onError={() => setImgFailed(true)}
+          style={{
+            width: '100%', height: '100%',
+            objectFit: 'contain', objectPosition: 'center',
+            padding: 4,
+            opacity: isLoaded ? 1 : 0,
+            transition: 'opacity 0.4s ease-in-out',
+          }}
+        />
+      </div>
     );
   }
   return (
@@ -76,6 +114,7 @@ export default function ProductCard({ product }) {
   const { cart, addToCart, updateQuantity, isInWishlist, addToWishlist, removeFromWishlist } = useCart();
   const [added, setAdded] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
+  const [isLoaded, setIsLoaded] = useState(false);
   
   // ── Variant Management ──
   const hasVariants = product.variants && product.variants.length > 1;
@@ -123,17 +162,40 @@ export default function ProductCard({ product }) {
   const discount = getDiscount(activeProduct.originalPrice, activeProduct.price);
   const emoji = getProductEmoji(activeProduct.category);
 
+  const hasValidImage = product.imageUrl && product.imageUrl.startsWith('http');
+
   return (
     <div className="product-card fade-in">
       <div className="product-card-image">
-        {product.image && !imgFailed ? (
-          <img
-            src={product.image}
-            alt={product.name}
-            className="product-img"
-            loading="lazy"
-            onError={() => setImgFailed(true)}
-          />
+        {hasValidImage && !imgFailed ? (
+          <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+            {/* Blur Placeholder */}
+            {!isLoaded && (
+              <img
+                src={getBlurUrl(product.imageUrl)}
+                alt=""
+                style={{
+                  position: 'absolute',
+                  top: 0, left: 0, width: '100%', height: '100%',
+                  objectFit: 'contain',
+                  filter: 'blur(20px)',
+                  transform: 'scale(1.1)',
+                }}
+              />
+            )}
+            <img
+              src={optimizeImageUrl(product.imageUrl, { width: 400, height: 400 })}
+              alt={product.name}
+              className="product-img"
+              loading="lazy"
+              onLoad={() => setIsLoaded(true)}
+              onError={() => setImgFailed(true)}
+              style={{
+                opacity: isLoaded ? 1 : 0,
+                transition: 'opacity 0.4s ease-in-out',
+              }}
+            />
+          </div>
         ) : (
           <span className="product-emoji">{emoji}</span>
         )}
@@ -150,7 +212,7 @@ export default function ProductCard({ product }) {
       </div>
 
       <div className="product-card-body">
-        <div className="product-card-brand">{product.brand}</div>
+        <div className="product-card-brand">{product.brandName}</div>
         <div className="product-card-name">
           <Link href={`/products/${product.id}`}>{activeProduct.name}</Link>
         </div>

@@ -71,10 +71,14 @@ export default function AccountPage() {
 
   // Load orders when tab opens
   useEffect(() => {
-    if (user && activeTab === 'orders') {
+    const userId = user?.id || user?._id;
+    if (userId && activeTab === 'orders') {
       setOrdersLoading(true);
-      fetchOrders(user.id)
-        .then(data => setOrders(data.orders || []))
+      fetchOrders(userId)
+        .then(res => {
+          const payload = res.data || res;
+          setOrders(payload.orders || []);
+        })
         .catch(() => {})
         .finally(() => setOrdersLoading(false));
     }
@@ -82,11 +86,15 @@ export default function AccountPage() {
 
   // Load addresses from DB when Addresses tab opens
   useEffect(() => {
-    if (user && activeTab === 'addresses' && addresses === null) {
+    const userId = user?.id || user?._id;
+    if (userId && activeTab === 'addresses' && addresses === null) {
       const token = localStorage.getItem('ayurvedic_token');
       fetch('/api/auth/profile', { headers: { Authorization: `Bearer ${token}` } })
         .then(r => r.json())
-        .then(d => setAddresses(d.user?.addresses || []))
+        .then(res => {
+           const payload = res.data || res;
+           setAddresses(payload.user?.addresses || []);
+        })
         .catch(() => setAddresses([]));
     }
   }, [user, activeTab, addresses]);

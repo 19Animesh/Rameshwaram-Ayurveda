@@ -12,6 +12,7 @@ export default function CheckoutPage() {
   const { user } = useAuth();
   const router = useRouter();
   const [orderPlaced, setOrderPlaced] = useState(false);
+  const [finalOrderState, setFinalOrderState] = useState(null);
   const [orderId, setOrderId] = useState('');
   const [loading, setLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('upi');
@@ -23,6 +24,13 @@ export default function CheckoutPage() {
     state: '',
     pincode: '',
   });
+
+  // Client-side guard against manual URL manipulation bypassing the middleware
+  useEffect(() => {
+    if (!user) {
+      router.push('/auth/login?redirect=/checkout');
+    }
+  }, [user, router]);
 
   // Auto-fill name & phone from logged-in user profile
   useEffect(() => {
@@ -129,7 +137,7 @@ export default function CheckoutPage() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          userId: user?.id || 'guest',
+          userId: user.id || user._id, // Support fallback
           items: cart.map(item => ({
             productId: item.id,
             name: item.name,
@@ -147,26 +155,42 @@ export default function CheckoutPage() {
           total: totalAmount,
         }),
       });
-      const data = await res.json();
-      setOrderId(data.order?.id || 'ORD-XXXX');
+      const json = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(json.error || 'Failed to place order.');
+      }
+      
+      const payload = json.data || json;
+      setOrderId(payload.order?.id || 'ORD-XXXX');
+      setFinalOrderState({ items: [...cart], total: totalAmount });
       setOrderPlaced(true);
       clearCart();
-    } catch {
-      alert('Failed to place order. Please try again.');
+    } catch (err) {
+      alert(err.message || 'Failed to place order. Please try again.');
     }
     setLoading(false);
   };
 
-  if (orderPlaced) {
+  if (orderPlaced && finalOrderState) {
     return (
       <div className="container">
         <div className="order-success fade-in">
           <span className="success-icon">🎉</span>
           <h1>Order Placed Successfully!</h1>
           <p>Your order <strong>{orderId}</strong> has been confirmed. We'll start preparing it right away.</p>
-          <div className="card" style={{ maxWidth: 400, margin: '0 auto', padding: 'var(--space-lg)', textAlign: 'left' }}>
-            <div className="summary-row"><span>Payment Method</span><span style={{ textTransform: 'uppercase' }}>{paymentMethod}</span></div>
-            <div className="summary-row total"><span>Total Paid</span><span>{formatPrice(totalAmount)}</span></div>
+          <div className="card" style={{ maxWidth: 450, margin: '0 auto', padding: 'var(--space-lg)', textAlign: 'left' }}>
+            <div style={{ marginBottom: 'var(--space-md)' }}>
+              {finalOrderState.items.map(item => (
+                <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14, padding: '4px 0' }}>
+                  <span>{item.quantity}x {item.name}</span>
+                  <span style={{ fontWeight: 500 }}>{formatPrice(item.price * item.quantity)}</span>
+                </div>
+              ))}
+            </div>
+            <div style={{ borderTop: '1px dashed var(--gray-200)', margin: 'var(--space-sm) 0', paddingTop: 'var(--space-sm)' }} />
+            <div className="summary-row"><span>Payment Method</span><span style={{ textTransform: 'uppercase', fontSize: 13, fontWeight: 600 }}>{paymentMethod}</span></div>
+            <div className="summary-row total"><span>Total Paid</span><span>{formatPrice(finalOrderState.total)}</span></div>
           </div>
           <div style={{ display: 'flex', gap: 'var(--space-md)', justifyContent: 'center', marginTop: 'var(--space-xl)' }}>
             <Link href="/account" className="btn btn-primary">View My Orders</Link>

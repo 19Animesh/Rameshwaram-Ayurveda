@@ -1,89 +1,83 @@
-import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { getUserFromRequest } from '@/lib/auth';
+import { successResponse, errorResponse } from '@/lib/apiResponse';
+import connectToDatabase from '@/lib/mongodb';
+import Product from '@/models/Product';
+import Order from '@/models/Order';
+import User from '@/models/User';
 
-const prisma = new PrismaClient();
 
-async function withNeonRetry(fn) {
-  try {
-    return await fn();
-  } catch (err) {
-    const isConnectionErr =
-      err.message?.includes('ECONNRESET') ||
-      err.message?.includes('ENOTFOUND') ||
-      err.message?.includes('connect') ||
-      err.code === 'P1001' ||
-      err.code === 'P1017';
-    if (isConnectionErr) {
-      // Wait 2s then retry once
-      await new Promise(r => setTimeout(r, 2000));
-      return await fn();
-    }
-    throw err;
-  }
-}
+export const dynamic = 'force-dynamic';
 
 export async function GET(request) {
   try {
     // Admin-only endpoint
     const authUser = getUserFromRequest(request);
     if (!authUser || authUser.role !== 'admin') {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      console.warn('GET /api/admin/stats — Unauthorized', { authUser });
+      return errorResponse('Unauthorized', 401);
     }
 
-    // Fetch all stats from Prisma in parallel
+    console.log('Admin stats requested', { userId: authUser.id });
+
+    await connectToDatabase();
+
     const [
       totalProducts,
       totalOrders,
       totalCustomers,
       orders,
-      lowStockProducts,
+      lowStockProductsRaw,
       categoryGroups,
-      topProducts,
-    ] = await withNeonRetry(() => 
-      Promise.all([
-        prisma.product.count(),
-        prisma.order.count(),
-        prisma.user.count({ where: { role: 'user' } }),
-        prisma.order.findMany({ select: { totalAmount: true } }),
-        prisma.product.findMany({
-          where: { stock: { lt: 50 } },
-          select: { id: true, name: true, stock: true },
-          orderBy: { stock: 'asc' },
-          take: 20,
-        }),
-        prisma.product.groupBy({
-          by: ['category'],
-          _count: { id: true },
-        }),
-        prisma.product.findMany({
-          select: { id: true, name: true, reviewCount: true, price: true },
-          orderBy: { reviewCount: 'desc' },
-          take: 5,
-        }),
-      ])
-    );
+      topProductsRaw,
+    ] = await Promise.all([
+      Product.countDocuments(),
+      Order.countDocuments(),
+      User.countDocuments({ role: 'user' }),
+      Order.find({}, 'totalAmount').lean(),
+      Product.find({ stock: { $lt: 10 } }, 'name stock')
+        .sort({ stock: 1 })
+        .limit(20)
+        .lean(),
+      Product.aggregate([
+        { $group: { _id: '$category', count: { $sum: 1 } } }
+      ]),
+      Product.find({}, 'name reviewCount price')
+        .sort({ reviewCount: -1 })
+        .limit(5)
+        .lean(),
+    ]);
+
+    const lowStockProducts = lowStockProductsRaw.map(p => ({
+      id: p._id.toString(),
+      name: p.name,
+      stock: p.stock
+    }));
+
+    const topProducts = topProductsRaw.map(p => ({
+      id: p._id.toString(),
+      name: p.name,
+      sales: p.reviewCount,
+      revenue: (p.price || 0) * (p.reviewCount || 0)
+    }));
 
     const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
 
     const categoryDistribution = {};
     for (const g of categoryGroups) {
-      categoryDistribution[g.category] = g._count.id;
+      if (g._id) categoryDistribution[g._id] = g.count;
     }
 
-    return NextResponse.json({
+    // ✅ Wrap in successResponse() so admin page's `statsFull.data` works correctly
+    return successResponse({
       stats: { totalRevenue, totalOrders, totalProducts, totalCustomers },
-      topProducts: topProducts.map(p => ({
-        id: p.id, name: p.name,
-        sales: p.reviewCount,
-        revenue: p.price * p.reviewCount,
-      })),
+      topProducts,
       lowStockProducts,
       categoryDistribution,
-      recentOrders: [], // Can add if needed later
+      recentOrders: [],
     });
   } catch (error) {
-    console.error('Admin Stats Error:', error);
-    return NextResponse.json({ error: 'Failed to fetch stats' }, { status: 500 });
+    console.error('Admin Stats GET Error:', error);
+    const isDev = process.env.NODE_ENV !== 'production';
+    return errorResponse(isDev ? (error.stack || error.message) : 'Failed to fetch stats', 500);
   }
 }

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import connectToDatabase from '@/lib/mongodb';
+import User from '@/models/User';
+import OTP from '@/models/OTP';
 import { sendOtpEmail } from '@/lib/mailer';
-
-const prisma = new PrismaClient();
 
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -16,11 +16,13 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Email or phone is required' }, { status: 400 });
     }
 
+    await connectToDatabase();
+    
     // Check the user exists
     const isEmail = identifier.includes('@');
-    const user = await prisma.user.findFirst({
-      where: isEmail ? { email: identifier } : { phone: identifier },
-    });
+    const user = await User.findOne(
+      isEmail ? { email: identifier } : { phone: identifier }
+    );
 
     if (!user) {
       return NextResponse.json({ error: 'No account found for this identifier' }, { status: 404 });
@@ -31,19 +33,17 @@ export async function POST(request) {
     }
 
     // Invalidate all previous unused OTPs for this identifier
-    await prisma.oTP.updateMany({
-      where: { emailOrPhone: identifier, used: false },
-      data: { used: true },
-    });
+    await OTP.updateMany(
+      { emailOrPhone: identifier, used: false },
+      { $set: { used: true } }
+    );
 
     // Generate fresh OTP
     const otpCode = generateOTP();
-    await prisma.oTP.create({
-      data: {
-        emailOrPhone: identifier,
-        code: otpCode,
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 min
-      },
+    await OTP.create({
+      emailOrPhone: identifier,
+      code: otpCode,
+      expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 min
     });
 
     // Send OTP via email

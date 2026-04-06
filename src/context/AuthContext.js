@@ -25,15 +25,19 @@ export function AuthProvider({ children }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ identifier, password }),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Login failed');
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Login failed');
     
-    if (data.requireVerification) return data; // Return to trigger OTP UI
+    // Our API sometimes wraps success payloads inside `data` property
+    const payload = json.data || json;
+    
+    if (payload.requireVerification) return payload; 
 
-    setUser(data.user);
-    localStorage.setItem('ayurvedic_user', JSON.stringify(data.user));
-    localStorage.setItem('ayurvedic_token', data.token);
-    return data;
+    setUser(payload.user);
+    localStorage.setItem('ayurvedic_user', JSON.stringify(payload.user));
+    localStorage.setItem('ayurvedic_token', payload.token);
+    document.cookie = `token=${payload.token}; path=/; max-age=604800`;
+    return payload;
   };
 
   const register = async (name, email, password, phone) => {
@@ -42,15 +46,17 @@ export function AuthProvider({ children }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name, email, password, phone }),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Registration failed');
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Registration failed');
     
-    if (data.requireVerification) return data;
+    const payload = json.data || json;
+    if (payload.requireVerification) return payload;
 
-    setUser(data.user);
-    localStorage.setItem('ayurvedic_user', JSON.stringify(data.user));
-    localStorage.setItem('ayurvedic_token', data.token);
-    return data;
+    setUser(payload.user);
+    localStorage.setItem('ayurvedic_user', JSON.stringify(payload.user));
+    localStorage.setItem('ayurvedic_token', payload.token);
+    document.cookie = `token=${payload.token}; path=/; max-age=604800`;
+    return payload;
   };
 
   const verifyOtp = async (identifier, otp) => {
@@ -59,13 +65,15 @@ export function AuthProvider({ children }) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ identifier, otp }),
     });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || 'Verification failed');
+    const json = await res.json();
+    if (!res.ok) throw new Error(json.error || 'Verification failed');
     
-    setUser(data.user);
-    localStorage.setItem('ayurvedic_user', JSON.stringify(data.user));
-    localStorage.setItem('ayurvedic_token', data.token);
-    return data;
+    const payload = json.data || json;
+    setUser(payload.user);
+    localStorage.setItem('ayurvedic_user', JSON.stringify(payload.user));
+    localStorage.setItem('ayurvedic_token', payload.token);
+    document.cookie = `token=${payload.token}; path=/; max-age=604800`;
+    return payload;
   };
 
   const updateUser = (updatedUser) => {
@@ -79,6 +87,7 @@ export function AuthProvider({ children }) {
     setUser(null);
     localStorage.removeItem('ayurvedic_user');
     localStorage.removeItem('ayurvedic_token');
+    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
   };
 
   const isAdmin = user?.role === 'admin';
