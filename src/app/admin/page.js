@@ -36,6 +36,18 @@ export default function AdminPage() {
   const [toast, setToast] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const fileInputRef = useRef(null);
+  // ── Order detail popup ──
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [showOrderModal, setShowOrderModal] = useState(false);
+
+  const openOrderDetail = (order) => {
+    setSelectedOrder(order);
+    setShowOrderModal(true);
+  };
+  const closeOrderModal = () => {
+    setShowOrderModal(false);
+    setTimeout(() => setSelectedOrder(null), 300);
+  };
 
   useEffect(() => { loadData(); }, []);
 
@@ -439,12 +451,13 @@ export default function AdminPage() {
                           <th>Payment</th>
                           <th>Status</th>
                           <th>Update Status</th>
+                          <th>Details</th>
                         </tr>
                       </thead>
                       <tbody>
                         {orders.map(order => (
-                          <tr key={order.id}>
-                            <td style={{ fontWeight: 600, fontSize: 12 }}>{order.id}</td>
+                          <tr key={order.id} style={{ cursor: 'pointer' }} onClick={() => openOrderDetail(order)}>
+                            <td style={{ fontWeight: 600, fontSize: 12 }}>{order.id?.slice(-8) || order._id}</td>
                             <td style={{ fontSize: 12 }}>{new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}</td>
                             <td style={{ fontWeight: 500 }}>{order.address?.fullName || order.userId}</td>
                             <td style={{ fontSize: 12 }}>{order.address?.city || '—'}</td>
@@ -461,7 +474,7 @@ export default function AdminPage() {
                               <span className="badge badge-green">{order.paymentMethod}</span>
                             </td>
                             <td><span className={`order-status ${order.status}`}>{order.status}</span></td>
-                            <td>
+                            <td onClick={e => e.stopPropagation()}>
                               <select
                                 className="sort-select"
                                 value={order.status}
@@ -474,6 +487,15 @@ export default function AdminPage() {
                                 <option value="delivered">📬 Delivered</option>
                                 <option value="cancelled">❌ Cancelled</option>
                               </select>
+                            </td>
+                            <td onClick={e => e.stopPropagation()}>
+                              <button
+                                className="btn btn-sm btn-secondary"
+                                onClick={() => openOrderDetail(order)}
+                                style={{ fontSize: 11, whiteSpace: 'nowrap' }}
+                              >
+                                👁 View
+                              </button>
                             </td>
                           </tr>
                         ))}
@@ -622,6 +644,186 @@ export default function AdminPage() {
                 <button type="submit" className="btn btn-primary">{editingProduct ? '💾 Save Changes' : '➕ Add Product'}</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Order Detail Modal ── */}
+      {showOrderModal && selectedOrder && (
+        <div
+          className="modal-overlay"
+          onClick={closeOrderModal}
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <div
+            className="modal"
+            onClick={e => e.stopPropagation()}
+            style={{
+              maxWidth: 560,
+              width: '95vw',
+              maxHeight: '88vh',
+              overflowY: 'auto',
+              borderRadius: 18,
+              padding: 0,
+              boxShadow: '0 25px 60px rgba(0,0,0,0.25)',
+              animation: 'slideUp 0.28s cubic-bezier(0.34,1.56,0.64,1)',
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{
+              background: 'linear-gradient(135deg, #1B4332 0%, #2D6A4F 100%)',
+              padding: '24px 28px',
+              borderRadius: '18px 18px 0 0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'flex-start',
+            }}>
+              <div>
+                <div style={{ color: 'rgba(255,255,255,0.7)', fontSize: 12, marginBottom: 4 }}>ORDER DETAILS</div>
+                <div style={{ color: '#fff', fontWeight: 700, fontSize: 16, fontFamily: 'var(--font-heading)' }}>
+                  #{selectedOrder.id?.slice(-10) || selectedOrder._id}
+                </div>
+                <div style={{ color: 'rgba(255,255,255,0.65)', fontSize: 12, marginTop: 4 }}>
+                  {new Date(selectedOrder.createdAt).toLocaleString('en-IN', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span className={`order-status ${selectedOrder.status}`} style={{ fontSize: 12 }}>
+                  {selectedOrder.status}
+                </span>
+                <button
+                  onClick={closeOrderModal}
+                  style={{
+                    background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff',
+                    width: 30, height: 30, borderRadius: '50%', cursor: 'pointer',
+                    fontSize: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    transition: 'background 0.2s',
+                  }}
+                  onMouseEnter={e => e.target.style.background = 'rgba(255,255,255,0.3)'}
+                  onMouseLeave={e => e.target.style.background = 'rgba(255,255,255,0.15)'}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body */}
+            <div style={{ padding: '24px 28px' }}>
+
+              {/* Customer Info */}
+              <div style={{
+                background: '#f0f7f4',
+                borderRadius: 12,
+                padding: '18px 20px',
+                marginBottom: 20,
+                border: '1px solid #d1ead8',
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#2D6A4F', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 14 }}>
+                  👤 Customer Information
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px 20px' }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#888', marginBottom: 3 }}>Full Name</div>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>
+                      {selectedOrder.address?.fullName || '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: '#888', marginBottom: 3 }}>Phone Number</div>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>
+                      📞 {selectedOrder.address?.phone || selectedOrder.address?.phoneNumber || '—'}
+                    </div>
+                  </div>
+                  <div style={{ gridColumn: '1 / -1' }}>
+                    <div style={{ fontSize: 11, color: '#888', marginBottom: 3 }}>Delivery Address</div>
+                    <div style={{ fontWeight: 500, fontSize: 13, lineHeight: 1.6 }}>
+                      📍 {
+                        [
+                          selectedOrder.address?.street || selectedOrder.address?.address,
+                          selectedOrder.address?.city,
+                          selectedOrder.address?.state,
+                          selectedOrder.address?.pincode || selectedOrder.address?.zip,
+                        ].filter(Boolean).join(', ') || '—'
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Items Ordered */}
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#2D6A4F', textTransform: 'uppercase', letterSpacing: 0.8, marginBottom: 12 }}>
+                  💊 Medicines / Items Ordered
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                  {selectedOrder.items?.map((item, idx) => (
+                    <div key={idx} style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '12px 16px',
+                      background: idx % 2 === 0 ? '#fafafa' : '#fff',
+                      border: '1px solid #eee',
+                      borderRadius: 10,
+                    }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13 }}>{item.name}</div>
+                        <div style={{ fontSize: 12, color: '#888', marginTop: 2 }}>
+                          Qty: <strong>{item.quantity}</strong> &nbsp;×&nbsp; {formatPrice(item.price)}
+                        </div>
+                      </div>
+                      <div style={{ fontWeight: 700, color: '#1B4332', fontSize: 14 }}>
+                        {formatPrice(item.price * item.quantity)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Order Summary */}
+              <div style={{
+                borderTop: '2px dashed #e0e0e0',
+                paddingTop: 16,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}>
+                <div>
+                  <div style={{ fontSize: 12, color: '#888' }}>Payment Method</div>
+                  <div style={{ fontWeight: 600, fontSize: 13, marginTop: 2 }}>
+                    <span className="badge badge-green" style={{ textTransform: 'uppercase' }}>
+                      {selectedOrder.paymentMethod || '—'}
+                    </span>
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 12, color: '#888' }}>Order Total</div>
+                  <div style={{ fontWeight: 800, fontSize: 22, color: '#1B4332' }}>
+                    {formatPrice(selectedOrder.total || selectedOrder.totalAmount)}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Row */}
+              <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button className="btn btn-secondary" onClick={closeOrderModal}>Close</button>
+                <select
+                  className="sort-select"
+                  value={selectedOrder.status}
+                  onChange={e => {
+                    handleOrderStatus(selectedOrder.id, e.target.value);
+                    setSelectedOrder(prev => ({ ...prev, status: e.target.value }));
+                  }}
+                  style={{ fontSize: 13, padding: '8px 14px', borderRadius: 8 }}
+                >
+                  <option value="confirmed">✅ Confirmed</option>
+                  <option value="processing">⚙️ Processing</option>
+                  <option value="shipped">🚚 Shipped</option>
+                  <option value="delivered">📬 Delivered</option>
+                  <option value="cancelled">❌ Cancelled</option>
+                </select>
+              </div>
+            </div>
           </div>
         </div>
       )}

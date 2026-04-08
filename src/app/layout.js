@@ -10,6 +10,11 @@ export const metadata = {
   title: 'Rameshwaram Ayurveda — Premium Ayurvedic Medicines Online',
   description: 'Shop authentic Ayurvedic medicines from trusted brands at Rameshwaram Ayurveda. Browse immunity boosters, digestive aids, skincare, and more with home delivery.',
   keywords: ['Rameshwaram Ayurveda', 'Ayurvedic medicines', 'herbal remedies', 'natural health', 'immunity', 'digestion', 'skincare'],
+  icons: {
+    icon: '/logo.png',
+    shortcut: '/logo.png',
+    apple: '/logo.png',
+  },
   openGraph: {
     type: 'website',
     locale: 'en_IN',

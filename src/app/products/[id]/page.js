@@ -181,14 +181,6 @@ export default function ProductDetailPage() {
               </button>
             </div>
 
-            {/* Medical Disclaimer */}
-            <div className="disclaimer-banner" style={{ marginTop: 'var(--space-xl)' }}>
-              <span className="disclaimer-icon">⚕️</span>
-              <div>
-                <strong>Important:</strong> This product is a dietary supplement. It is not intended to diagnose, treat, cure, or prevent any disease. 
-                Consult your physician before use, especially if you are pregnant, nursing, or taking any medication.
-              </div>
-            </div>
           </div>
         </div>
 

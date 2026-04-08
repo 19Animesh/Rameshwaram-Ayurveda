@@ -93,16 +93,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Medical Disclaimer */}
-      <div className="container" style={{ marginTop: 'var(--space-lg)' }}>
-        <div className="disclaimer-banner">
-          <span className="disclaimer-icon">⚕️</span>
-          <div>
-            <strong>Medical Disclaimer:</strong> Ayurvedic products are dietary supplements. They are not intended to diagnose, treat, cure, or prevent any disease. 
-            Always consult a qualified Ayurvedic practitioner or physician before starting any new supplement regimen.
-          </div>
-        </div>
-      </div>
 
       {/* Browse by Category */}
       <section className="section">

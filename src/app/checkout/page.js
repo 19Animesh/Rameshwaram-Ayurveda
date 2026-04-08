@@ -83,50 +83,16 @@ export default function CheckoutPage() {
     }
 
     if (paymentMethod === 'cod') {
-      await finalizeOrder('none', 'none');
+      // COD path: skip Razorpay, go straight to order creation
+      await createCodOrder();
     } else {
-      // Trigger Razorpay
-      setLoading(true);
-      try {
-        const orderRes = await fetch('/api/orders/razorpay', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amount: totalAmount })
-        });
-        
-        const orderData = await orderRes.json();
-        
-        const options = {
-          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID || 'rzp_test_placeholder',
-          amount: orderData.amount,
-          currency: orderData.currency,
-          name: "Rameshwaram Ayurveda",
-          description: "Purchase from Rameshwaram Ayurveda",
-          order_id: orderData.id,
-          handler: async function (response) {
-            await finalizeOrder(response.razorpay_payment_id, response.razorpay_signature);
-          },
-          prefill: {
-            name: address.fullName,
-            contact: address.phone,
-          },
-          theme: { color: "#3a7f44" }
-        };
-        
-        const rzp = new window.Razorpay(options);
-        rzp.on('payment.failed', function(response) {
-            alert('Payment Failed: ' + response.error.description);
-        });
-        rzp.open();
-      } catch (err) {
-        console.error(err);
-        alert('Failed to initialize payment gateway');
-      }
-      setLoading(false);
+      // Online payment path: two-step secure Razorpay flow
+      await initializeRazorpayPayment();
     }
   };
 
-  const finalizeOrder = async (paymentId, signature) => {
+  // ── COD: create order directly (no payment gateway) ────────────────────────
+  const createCodOrder = async () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('ayurvedic_token');
@@ -137,30 +103,23 @@ export default function CheckoutPage() {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
-          userId: user.id || user._id, // Support fallback
-          items: cart.map(item => ({
+          userId:        user.id || user._id,
+          items:         cart.map(item => ({
             productId: item.id,
-            name: item.name,
-            brand: item.brand,
-            price: item.price,
-            quantity: item.quantity,
-            category: item.category,
+            name:      item.name,
+            price:     item.price,
+            quantity:  item.quantity,
           })),
           address,
-          paymentMethod,
-          paymentId,
-          signature,
-          subtotal: cartTotal,
+          paymentMethod: 'cod',
+          paymentId:     null,
+          subtotal:      cartTotal,
           deliveryCharge,
-          total: totalAmount,
+          total:         totalAmount,
         }),
       });
       const json = await res.json();
-      
-      if (!res.ok) {
-        throw new Error(json.error || 'Failed to place order.');
-      }
-      
+      if (!res.ok) throw new Error(json.error || 'Failed to place order.');
       const payload = json.data || json;
       setOrderId(payload.order?.id || 'ORD-XXXX');
       setFinalOrderState({ items: [...cart], total: totalAmount });
@@ -168,6 +127,122 @@ export default function CheckoutPage() {
       clearCart();
     } catch (err) {
       alert(err.message || 'Failed to place order. Please try again.');
+    }
+    setLoading(false);
+  };
+
+  // ── STEP 1: Ask backend to create a Razorpay order ─────────────────────────
+  // Frontend sends ONLY productIds + quantities. Amount is calculated server-side.
+  const initializeRazorpayPayment = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('ayurvedic_token');
+
+      // Send only identifiers — never prices
+      const createRes = await fetch('/api/payment/create-order', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          items: cart.map(item => ({
+            productId: item.id,
+            quantity:  item.quantity,
+          })),
+        }),
+      });
+
+      const createData = await createRes.json();
+
+      if (!createRes.ok) {
+        throw new Error(createData.error || 'Could not create payment order');
+      }
+
+      // ── STEP 2: Open Razorpay checkout with server-returned data ──────────
+      // We use createData.amountPaise (from server) — never our own calculated value
+      const options = {
+        key:         createData.keyId,          // public key from server
+        amount:      createData.amountPaise,    // paise — from server, not frontend
+        currency:    createData.currency,
+        name:        'Rameshwaram Ayurveda',
+        description: 'Purchase from Rameshwaram Ayurveda',
+        order_id:    createData.razorpayOrderId,
+        prefill: {
+          name:    address.fullName,
+          contact: address.phone,
+        },
+        theme: { color: '#1B4332' },
+        modal: {
+          ondismiss: () => setLoading(false),
+        },
+
+        // ── STEP 3: handler — called by Razorpay ONLY on successful payment ──
+        // Sends 3 tokens to our /api/payment/verify endpoint
+        handler: async function (response) {
+          await verifyAndCreateOrder({
+            razorpay_order_id:   response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature:  response.razorpay_signature,
+          });
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+      rzp.on('payment.failed', function (response) {
+        console.error('Payment failed:', response.error);
+        alert('Payment failed: ' + (response.error?.description || 'Unknown error'));
+        setLoading(false);
+      });
+      rzp.open();
+    } catch (err) {
+      console.error('Payment initialization error:', err);
+      alert(err.message || 'Failed to initialize payment gateway');
+      setLoading(false);
+    }
+  };
+
+  // ── STEP 3: Verify signature + create order (backend does all the checks) ──
+  // Frontend only relays the 3 Razorpay tokens — it cannot forge them
+  const verifyAndCreateOrder = async ({ razorpay_order_id, razorpay_payment_id, razorpay_signature }) => {
+    try {
+      const token = localStorage.getItem('ayurvedic_token');
+
+      const verifyRes = await fetch('/api/payment/verify', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({
+          razorpay_order_id,
+          razorpay_payment_id,
+          razorpay_signature,
+          // Send identifiers only — backend recalculates price from DB
+          items: cart.map(item => ({
+            productId: item.id,
+            name:      item.name,
+            quantity:  item.quantity,
+          })),
+          address,
+          paymentMethod,
+        }),
+      });
+
+      const verifyData = await verifyRes.json();
+
+      if (!verifyRes.ok) {
+        throw new Error(verifyData.error || 'Payment verification failed');
+      }
+
+      // ✅ Order confirmed — clear cart and show success screen
+      setOrderId(verifyData.order?.id || razorpay_payment_id);
+      setFinalOrderState({ items: [...cart], total: verifyData.order?.totalAmount || totalAmount });
+      setOrderPlaced(true);
+      clearCart();
+    } catch (err) {
+      console.error('Verification error:', err);
+      alert(err.message || 'Payment succeeded but order creation failed. Contact support with your payment ID.');
     }
     setLoading(false);
   };
