@@ -28,9 +28,10 @@ export default function Footer() {
           <h4>Customer Care</h4>
           <Link href="/account">My Account</Link>
           <Link href="/cart">Shopping Cart</Link>
-          <Link href="/account">Track Order</Link>
-          <Link href="#">Return Policy</Link>
-          <Link href="#">Shipping Info</Link>
+          <Link href="/orders">Track Order</Link>
+          <Link href="/refund-policy">Refund &amp; Returns</Link>
+          <Link href="/privacy-policy">Privacy Policy</Link>
+          <Link href="/terms-and-conditions">Terms &amp; Conditions</Link>
         </div>
 
         <div className="footer-section">
@@ -46,6 +47,11 @@ export default function Footer() {
 
       <div className="footer-bottom">
         <p>© 2026 Rameshwaram Ayurveda. All rights reserved. | Ayurvedic products should be taken under guidance of a qualified practitioner.</p>
+        <p style={{ marginTop: '8px', opacity: 0.7 }}>
+          <Link href="/privacy-policy" style={{ color: 'inherit', textDecoration: 'underline', marginRight: '16px' }}>Privacy Policy</Link>
+          <Link href="/terms-and-conditions" style={{ color: 'inherit', textDecoration: 'underline', marginRight: '16px' }}>Terms &amp; Conditions</Link>
+          <Link href="/refund-policy" style={{ color: 'inherit', textDecoration: 'underline' }}>Refund Policy</Link>
+        </p>
       </div>
     </footer>
   );

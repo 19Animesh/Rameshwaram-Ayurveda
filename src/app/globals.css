@@ -2472,3 +2472,375 @@ main {
   animation: fadeIn 0.2s ease;
 }
 
+/* ==============================
+   POLICY PAGES (Privacy, T&C, Refund)
+   ============================== */
+
+.policy-page {
+  background: var(--cream-light);
+  min-height: 100vh;
+  padding: var(--space-3xl) 0;
+}
+
+.policy-container {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0 var(--space-lg);
+}
+
+/* Header */
+.policy-header {
+  text-align: center;
+  margin-bottom: var(--space-3xl);
+  padding-bottom: var(--space-2xl);
+  border-bottom: 2px solid var(--green-100);
+}
+
+.policy-header h1 {
+  font-size: 2.8rem;
+  color: var(--green-900);
+  margin-bottom: var(--space-sm);
+  position: relative;
+  display: inline-block;
+}
+
+.policy-header h1::after {
+  content: '';
+  display: block;
+  width: 70px;
+  height: 3px;
+  background: linear-gradient(90deg, var(--green-500), var(--gold-400));
+  margin: var(--space-sm) auto 0;
+  border-radius: 2px;
+}
+
+.policy-effective {
+  font-size: 14px;
+  color: var(--gray-500);
+  margin-top: var(--space-md);
+  margin-bottom: var(--space-lg);
+}
+
+.policy-intro {
+  font-size: 16px;
+  color: var(--gray-600);
+  line-height: 1.8;
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+/* Table of Contents */
+.policy-toc {
+  background: white;
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  margin-bottom: var(--space-3xl);
+  border: 1px solid var(--green-100);
+  box-shadow: var(--shadow-sm);
+}
+
+.policy-toc h2 {
+  font-size: 1rem;
+  font-family: var(--font-body);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: var(--green-700);
+  margin-bottom: var(--space-md);
+  font-weight: 700;
+}
+
+.policy-toc ol {
+  padding-left: var(--space-lg);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px var(--space-xl);
+}
+
+.policy-toc li {
+  font-size: 14px;
+}
+
+.policy-toc a {
+  color: var(--gray-600);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+}
+
+.policy-toc a:hover {
+  color: var(--green-600);
+}
+
+/* Sections */
+.policy-section {
+  margin-bottom: var(--space-3xl);
+  scroll-margin-top: calc(var(--header-height) + var(--space-lg));
+}
+
+.policy-section h2 {
+  font-size: 1.6rem;
+  color: var(--green-900);
+  margin-bottom: var(--space-md);
+  padding-bottom: var(--space-sm);
+  border-bottom: 1px solid var(--green-100);
+}
+
+.policy-section h3 {
+  font-size: 1.1rem;
+  color: var(--green-800);
+  margin-top: var(--space-lg);
+  margin-bottom: var(--space-sm);
+}
+
+.policy-section p {
+  color: var(--gray-700);
+  line-height: 1.85;
+  margin-bottom: var(--space-md);
+  font-size: 15px;
+}
+
+.policy-section ul,
+.policy-section ol {
+  padding-left: var(--space-xl);
+  margin-bottom: var(--space-md);
+}
+
+.policy-section li {
+  color: var(--gray-700);
+  line-height: 1.8;
+  margin-bottom: 6px;
+  font-size: 15px;
+}
+
+.policy-section a {
+  color: var(--green-600);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.policy-section a:hover {
+  color: var(--green-700);
+}
+
+/* Notice / Alert Boxes */
+.policy-notice {
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--radius-md);
+  margin: var(--space-md) 0;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.policy-notice--warning {
+  background: #fff8e6;
+  border-left: 4px solid var(--gold-500);
+  color: var(--gray-700);
+}
+
+.policy-notice--info {
+  background: var(--green-50);
+  border-left: 4px solid var(--green-400);
+  color: var(--gray-700);
+}
+
+/* Cookie / Data Table */
+.cookie-table-wrapper {
+  overflow-x: auto;
+  margin: var(--space-md) 0;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--gray-200);
+}
+
+.cookie-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.cookie-table thead {
+  background: var(--green-50);
+}
+
+.cookie-table th {
+  padding: 12px var(--space-md);
+  text-align: left;
+  font-weight: 600;
+  color: var(--green-800);
+  border-bottom: 2px solid var(--green-100);
+  white-space: nowrap;
+}
+
+.cookie-table td {
+  padding: 12px var(--space-md);
+  color: var(--gray-700);
+  border-bottom: 1px solid var(--gray-100);
+  vertical-align: top;
+}
+
+.cookie-table tr:last-child td {
+  border-bottom: none;
+}
+
+.cookie-table tr:hover td {
+  background: var(--green-50);
+}
+
+/* Contact Card */
+.contact-card {
+  background: white;
+  border: 1px solid var(--green-100);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  margin: var(--space-md) 0;
+  box-shadow: var(--shadow-sm);
+}
+
+.contact-card p {
+  margin-bottom: var(--space-sm) !important;
+  font-size: 15px;
+}
+
+.contact-card p:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* Policy Grid (Eligible / Not Eligible) */
+.policy-grid {
+  margin: var(--space-md) 0;
+}
+
+.policy-grid-item {
+  padding: var(--space-lg);
+  border-radius: var(--radius-md);
+  border: 1px solid;
+}
+
+.policy-grid-item--eligible {
+  background: #f0f9f0;
+  border-color: #b6ddb6;
+}
+
+.policy-grid-item h3 {
+  margin-top: 0 !important;
+  font-size: 1rem !important;
+}
+
+/* Refund Timeline */
+.timeline {
+  margin: var(--space-lg) 0;
+  position: relative;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 19px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--green-100);
+}
+
+.timeline-item {
+  display: flex;
+  gap: var(--space-lg);
+  margin-bottom: var(--space-lg);
+  position: relative;
+}
+
+.timeline-item:last-child {
+  margin-bottom: 0;
+}
+
+.timeline-step {
+  width: 40px;
+  height: 40px;
+  min-width: 40px;
+  background: linear-gradient(135deg, var(--green-700), var(--green-500));
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 15px;
+  position: relative;
+  z-index: 1;
+  box-shadow: 0 2px 8px rgba(45, 80, 22, 0.3);
+}
+
+.timeline-content {
+  background: white;
+  border: 1px solid var(--green-100);
+  border-radius: var(--radius-md);
+  padding: var(--space-md) var(--space-lg);
+  flex: 1;
+}
+
+.timeline-content strong {
+  display: block;
+  color: var(--green-800);
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+
+.timeline-content p {
+  margin-bottom: 0 !important;
+  font-size: 14px;
+  color: var(--gray-600) !important;
+}
+
+/* Footer jurisdiction note */
+.policy-jurisdiction {
+  margin-top: var(--space-xl);
+  font-size: 13px;
+  color: var(--gray-400);
+  padding-top: var(--space-md);
+  border-top: 1px solid var(--gray-100);
+}
+
+/* ==============================
+   POLICY PAGE RESPONSIVE
+   ============================== */
+
+@media (max-width: 768px) {
+  .policy-header h1 {
+    font-size: 2rem;
+  }
+
+  .policy-toc ol {
+    grid-template-columns: 1fr;
+  }
+
+  .policy-section h2 {
+    font-size: 1.35rem;
+  }
+
+  .timeline::before {
+    display: none;
+  }
+
+  .timeline-item {
+    flex-direction: column;
+    gap: var(--space-sm);
+  }
+
+  .timeline-step {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .policy-header h1 {
+    font-size: 1.7rem;
+  }
+
+  .cookie-table th,
+  .cookie-table td {
+    padding: 10px 12px;
+    font-size: 13px;
+  }
+}
+
