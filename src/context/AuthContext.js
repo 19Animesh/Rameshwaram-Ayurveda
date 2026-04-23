@@ -8,15 +8,22 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('ayurvedic_user');
-    if (savedUser) {
+    const fetchProfile = async () => {
       try {
-        setUser(JSON.parse(savedUser));
-      } catch {
-        localStorage.removeItem('ayurvedic_user');
+        const res = await fetch('/api/auth/profile');
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data.user);
+        } else {
+          setUser(null);
+        }
+      } catch (error) {
+        setUser(null);
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+    fetchProfile();
   }, []);
 
   const login = async (identifier, password) => {
@@ -34,9 +41,6 @@ export function AuthProvider({ children }) {
     if (payload.requireVerification) return payload; 
 
     setUser(payload.user);
-    localStorage.setItem('ayurvedic_user', JSON.stringify(payload.user));
-    localStorage.setItem('ayurvedic_token', payload.token);
-    document.cookie = `token=${payload.token}; path=/; max-age=604800`;
     return payload;
   };
 
@@ -53,9 +57,6 @@ export function AuthProvider({ children }) {
     if (payload.requireVerification) return payload;
 
     setUser(payload.user);
-    localStorage.setItem('ayurvedic_user', JSON.stringify(payload.user));
-    localStorage.setItem('ayurvedic_token', payload.token);
-    document.cookie = `token=${payload.token}; path=/; max-age=604800`;
     return payload;
   };
 
@@ -70,24 +71,19 @@ export function AuthProvider({ children }) {
     
     const payload = json.data || json;
     setUser(payload.user);
-    localStorage.setItem('ayurvedic_user', JSON.stringify(payload.user));
-    localStorage.setItem('ayurvedic_token', payload.token);
-    document.cookie = `token=${payload.token}; path=/; max-age=604800`;
     return payload;
   };
 
   const updateUser = (updatedUser) => {
     const merged = { ...user, ...updatedUser };
     setUser(merged);
-    localStorage.setItem('ayurvedic_user', JSON.stringify(merged));
-    localStorage.setItem('ayurvedic_token', localStorage.getItem('ayurvedic_token') || '');
   };
 
-  const logout = () => {
-    setUser(null);
-    localStorage.removeItem('ayurvedic_user');
-    localStorage.removeItem('ayurvedic_token');
+  const logout = async () => {
+    // Optionally call a logout API if you want to clear cookie server-side
+    // For now, setting cookie to expire
     document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+    setUser(null);
   };
 
   const isAdmin = user?.role === 'admin';

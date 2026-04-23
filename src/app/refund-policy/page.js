@@ -28,7 +28,6 @@ export default function RefundPolicyPage() {
             <li><a href="#refund-eligibility">Refund Eligibility</a></li>
             <li><a href="#non-refundable">Non-Refundable Cases</a></li>
             <li><a href="#refund-process">Refund Process &amp; Timeline</a></li>
-            <li><a href="#cod-refunds">COD Refunds</a></li>
             <li><a href="#return-shipping">Return Shipping</a></li>
             <li><a href="#contact">Contact for Support</a></li>
           </ol>
@@ -152,28 +151,8 @@ export default function RefundPolicyPage() {
           </p>
         </section>
 
-        <section id="cod-refunds" className="policy-section">
-          <h2>5. Cash on Delivery (COD) Refunds</h2>
-          <p>
-            For orders paid via Cash on Delivery, refunds cannot be issued in cash. Instead, the
-            refund amount will be transferred directly to your <strong>bank account</strong> via NEFT
-            or UPI.
-          </p>
-          <p>To process a COD refund, you will be required to provide:</p>
-          <ul>
-            <li>Your full name (as per bank records)</li>
-            <li>Bank account number</li>
-            <li>IFSC code</li>
-            <li>UPI ID (as an alternative)</li>
-          </ul>
-          <p>
-            COD refunds are processed within <strong>7–10 business days</strong> from the date of
-            approval, subject to bank processing time.
-          </p>
-        </section>
-
         <section id="return-shipping" className="policy-section">
-          <h2>6. Return Shipping</h2>
+          <h2>5. Return Shipping</h2>
           <ul>
             <li>
               If a return is required (for wrong or damaged products), we will arrange a

@@ -98,7 +98,6 @@ export default function TermsAndConditionsPage() {
             <li>All prices displayed are in <strong>Indian Rupees (INR)</strong> and are inclusive of applicable taxes unless stated otherwise.</li>
             <li>We reserve the right to change product prices at any time without prior notice. Pricing at the time of order placement shall apply to that order.</li>
             <li>Online payments are processed securely via <strong>Razorpay</strong>. Accepted payment methods include credit/debit cards, UPI, net banking, and supported wallets.</li>
-            <li><strong>Cash on Delivery (COD)</strong> is available on select orders and pin codes, subject to a COD handling fee where applicable.</li>
             <li>In the event of a pricing error on our website, we reserve the right to cancel the affected order and issue a full refund.</li>
             <li>Promotional discounts and coupon codes are subject to their respective terms and cannot be combined unless explicitly stated.</li>
           </ul>

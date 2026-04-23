@@ -18,7 +18,15 @@ const orderSchema = new mongoose.Schema({
   paymentId:       { type: String, default: null, index: true },  // razorpay_payment_id
   razorpayOrderId: { type: String, default: null, index: true },  // razorpay_order_id
 
-  shippingAddr: { type: String, required: true }, // JSON snapshot of address
+  shippingAddr: { type: String }, // Old JSON snapshot of address (fallback)
+  shippingAddress: {
+    fullName: { type: String },
+    phone: { type: String },
+    street: { type: String },
+    city: { type: String },
+    state: { type: String },
+    pincode: { type: String },
+  },
   items:        [orderItemSchema],
 }, { timestamps: true });
 

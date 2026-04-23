@@ -40,9 +40,11 @@ export async function POST(request) {
 
     // Generate fresh OTP
     const otpCode = generateOTP();
+    const bcrypt = require('bcryptjs');
+    const otpHash = await bcrypt.hash(otpCode, 10);
     await OTP.create({
       emailOrPhone: identifier,
-      code: otpCode,
+      code: otpHash,
       expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 min
     });
 

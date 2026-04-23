@@ -25,21 +25,24 @@ import { checkRateLimit } from '@/lib/rateLimit';
 const KEY_ID     = process.env.RAZORPAY_KEY_ID;
 const KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
 
-if (!KEY_ID || !KEY_SECRET) {
-  console.error('[payment/create-order] RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET is missing!');
+function getRazorpayInstance() {
+  if (!KEY_ID || !KEY_SECRET) {
+    console.error('[payment/create-order] RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET is missing!');
+    // return dummy or throw during actual runtime
+    throw new Error('Razorpay keys missing');
+  }
+  return new Razorpay({ key_id: KEY_ID, key_secret: KEY_SECRET });
 }
 
-const razorpay = new Razorpay({ key_id: KEY_ID, key_secret: KEY_SECRET });
+// Flat ₹100 delivery charge (no free-delivery threshold)
+const DELIVERY_CHARGE = 100;
 
-// Delivery charge logic (must mirror checkout UI exactly so totals match)
-const DELIVERY_THRESHOLD = 500; // orders >= ₹500 get free delivery
-const DELIVERY_CHARGE    = 49;
 
 export async function POST(request) {
   try {
     // ── 1. Rate-limit ──────────────────────────────────────────────────────
     const ip = request.headers.get('x-forwarded-for') || 'unknown';
-    if (!checkRateLimit(ip, 5, 60000)) {
+    if (!(await checkRateLimit(ip, 5, 60000))) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
     }
 
@@ -94,12 +97,14 @@ export async function POST(request) {
       subtotal += product.price * item.quantity;
     }
 
-    const deliveryCharge = subtotal >= DELIVERY_THRESHOLD ? 0 : DELIVERY_CHARGE;
+    const deliveryCharge = subtotal > 500 ? 0 : DELIVERY_CHARGE;
     const totalAmount    = subtotal + deliveryCharge; // in ₹
+
 
     // ── 6. Create Razorpay order ──────────────────────────────────────────
     const receipt = `rcpt_${crypto.randomBytes(8).toString('hex')}`;
 
+    const razorpay = getRazorpayInstance();
     const rzpOrder = await razorpay.orders.create({
       amount:   Math.round(totalAmount * 100), // paise
       currency: 'INR',

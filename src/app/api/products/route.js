@@ -176,7 +176,8 @@ export async function POST(request) {
     let imagePublicId = '';
 
     // Handle image upload
-    if (data.image) {
+    if (data.image && data.image.startsWith('data:image/')) {
+      // Base64 image → upload to Cloudinary
       try {
         const slug = (data.name || 'product')
           .toString()
@@ -196,6 +197,9 @@ export async function POST(request) {
         console.error("❌ Image upload failed:", uploadErr);
         return errorResponse(uploadErr.message, 400);
       }
+    } else if (data.imageUrl && data.imageUrl.startsWith('http')) {
+      // Already a hosted URL — use directly
+      imageUrl = data.imageUrl;
     }
 
     const newProduct = await createProduct({

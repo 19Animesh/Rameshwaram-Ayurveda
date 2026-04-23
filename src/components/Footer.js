@@ -7,10 +7,7 @@ export default function Footer() {
       <div className="footer-grid">
         <div className="footer-brand">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-            <Image src="/logo.png" alt="Rameshwaram Ayurveda" width={44} height={44} style={{ borderRadius: '50%' }} />
-            <div className="logo-text">
-              Rameshwaram<span style={{ color: 'var(--gold-400)' }}>Ayurveda</span>
-            </div>
+            <Image src="/logo.png" alt="Rameshwaram Ayurveda" width={64} height={64} style={{ objectFit: 'contain' }} />
           </div>
           <p>Your trusted online destination for authentic Ayurvedic medicines and natural wellness products.</p>
         </div>

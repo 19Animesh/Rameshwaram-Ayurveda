@@ -5,8 +5,11 @@
  */
 import jwt from 'jsonwebtoken';
 
-// ✅ Must match the fallback in src/middleware.js — both must be identical
-const SECRET = process.env.JWT_SECRET || 'rameshwaram-ayurveda-super-secret-2026';
+// JWT_SECRET is strictly required for production
+const SECRET = process.env.JWT_SECRET;
+if (!SECRET) {
+  throw new Error('FATAL: JWT_SECRET environment variable is not defined.');
+}
 
 export function signToken(payload) {
   return jwt.sign(payload, SECRET, { expiresIn: '7d' });

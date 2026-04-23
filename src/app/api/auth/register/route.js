@@ -41,8 +41,8 @@ export async function POST(request) {
     // Create unverified user
     const newUser = await User.create({
       name,
-      email: email || '',
-      phone: phone || null,
+      ...(email ? { email } : {}),
+      ...(phone ? { phone } : {}),
       passwordHash,
       isEmailVerified: false,
       isPhoneVerified: false
@@ -51,10 +51,11 @@ export async function POST(request) {
     // Generate and save OTP
     const otpCode = generateOTP();
     const identifier = email || phone;
+    const otpHash = await bcrypt.hash(otpCode, 10);
     
     await OTP.create({
       emailOrPhone: identifier,
-      code: otpCode,
+      code: otpHash,
       expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes expiry
     });
     

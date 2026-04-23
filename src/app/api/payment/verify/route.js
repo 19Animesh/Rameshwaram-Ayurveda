@@ -19,11 +19,13 @@
 
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
+import mongoose from 'mongoose';
 import connectToDatabase from '@/lib/mongodb';
 import Order from '@/models/Order';
 import Product from '@/models/Product';
 import { getUserFromRequest } from '@/lib/auth';
 import { checkRateLimit } from '@/lib/rateLimit';
+import { addressSchema } from '@/lib/validation';
 
 const KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
 
@@ -31,14 +33,15 @@ if (!KEY_SECRET) {
   console.error('[payment/verify] RAZORPAY_KEY_SECRET is not set!');
 }
 
-const DELIVERY_THRESHOLD = 500;
-const DELIVERY_CHARGE    = 49;
+// Flat ₹100 delivery charge (no free-delivery threshold)
+const DELIVERY_CHARGE    = 100;
+
 
 export async function POST(request) {
   try {
     // ── 1. Rate-limit ──────────────────────────────────────────────────────
     const ip = request.headers.get('x-forwarded-for') || 'unknown';
-    if (!checkRateLimit(ip, 10, 60000)) {
+    if (!(await checkRateLimit(ip, 10, 60000))) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
     }
 
@@ -58,6 +61,14 @@ export async function POST(request) {
       address,          // delivery address snapshot
       paymentMethod,
     } = body;
+
+    const addressParsed = addressSchema.safeParse(address);
+    if (!addressParsed.success) {
+      return NextResponse.json(
+        { error: 'Invalid shipping address data', details: addressParsed.error.format() },
+        { status: 400 }
+      );
+    }
 
     // ── 4. Validate required fields ────────────────────────────────────────
     const missing = [];
@@ -144,36 +155,81 @@ export async function POST(request) {
       });
     }
 
-    const deliveryCharge = subtotal >= DELIVERY_THRESHOLD ? 0 : DELIVERY_CHARGE;
+    const deliveryCharge = subtotal > 500 ? 0 : DELIVERY_CHARGE;
     const totalAmount    = subtotal + deliveryCharge;
 
-    // ── 9. Decrement stock atomically ──────────────────────────────────────
-    // Use $inc with $gte guard to prevent negative stock race conditions
-    for (const item of verifiedItems) {
-      const result = await Product.updateOne(
-        { _id: item.productId, stock: { $gte: item.quantity } },
-        { $inc: { stock: -item.quantity } }
-      );
-      if (result.modifiedCount === 0) {
-        // Stock ran out between verify check and update (race condition)
+
+    // ── 9. Decrement stock and Create Order atomically ─────────────────────
+    const session = await mongoose.startSession();
+    let orderDoc = null;
+    
+    try {
+      session.startTransaction();
+      
+      for (const item of verifiedItems) {
+        const result = await Product.updateOne(
+          { _id: item.productId, stock: { $gte: item.quantity } },
+          { $inc: { stock: -item.quantity } },
+          { session }
+        );
+        if (result.modifiedCount === 0) {
+          throw new Error(`Stock unavailable for "${item.name}" at time of purchase`);
+        }
+      }
+
+      const orderArr = await Order.create([{
+        userId:        authUser.userId || authUser.id,
+        status:        'confirmed',
+        totalAmount,
+        paymentMethod: paymentMethod || 'razorpay',
+        paymentId:     razorpay_payment_id,
+        razorpayOrderId: razorpay_order_id,
+        shippingAddr:  JSON.stringify(address), // preserving for fallback
+        shippingAddress: address, // structured field
+        items:         verifiedItems,
+      }], { session });
+      
+      orderDoc = orderArr[0];
+
+      await session.commitTransaction();
+    } catch (txnError) {
+      await session.abortTransaction();
+      console.warn('[payment/verify] Transaction failed, trying without transaction if unsupported...', txnError.message);
+      
+      // Fallback for standalone Mongo servers that don't support transactions
+      if (txnError.message.includes('Transaction numbers') || txnError.message.includes('replica set')) {
+        for (const item of verifiedItems) {
+          const result = await Product.updateOne(
+            { _id: item.productId, stock: { $gte: item.quantity } },
+            { $inc: { stock: -item.quantity } }
+          );
+          if (result.modifiedCount === 0) {
+            return NextResponse.json(
+              { error: `Stock unavailable for "${item.name}" at time of purchase` },
+              { status: 409 }
+            );
+          }
+        }
+        orderDoc = await Order.create({
+          userId:        authUser.userId || authUser.id,
+          status:        'confirmed',
+          totalAmount,
+          paymentMethod: paymentMethod || 'razorpay',
+          paymentId:     razorpay_payment_id,
+          razorpayOrderId: razorpay_order_id,
+          shippingAddr:  JSON.stringify(address),
+          shippingAddress: address,
+          items:         verifiedItems,
+        });
+      } else {
         return NextResponse.json(
-          { error: `Stock unavailable for "${item.name}" at time of purchase` },
+          { error: txnError.message || `An error occurred during order confirmation` },
           { status: 409 }
         );
       }
+    } finally {
+      session.endSession();
     }
-
-    // ── 10. Create order in MongoDB ONLY now (after all verifications) ──────
-    const orderDoc = await Order.create({
-      userId:        authUser.userId || authUser.id,
-      status:        'confirmed',
-      totalAmount,
-      paymentMethod: paymentMethod || 'razorpay',
-      paymentId:     razorpay_payment_id,   // Razorpay payment ID
-      razorpayOrderId: razorpay_order_id,   // Razorpay order ID
-      shippingAddr:  JSON.stringify(address),
-      items:         verifiedItems,
-    });
 
     const order = orderDoc.toObject();
 

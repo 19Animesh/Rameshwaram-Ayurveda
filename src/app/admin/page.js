@@ -4,6 +4,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useAuth } from '@/context/AuthContext';
 import { formatPrice } from '@/components/ProductCard';
+import OrdersTable from '@/components/admin/OrdersTable';
+import ProductsTable from '@/components/admin/ProductsTable';
 
 const EMPTY_PRODUCT = {
   name: '', brandId: '27', brandName: '', description: '', price: '', originalPrice: '',
@@ -22,7 +24,7 @@ function authHeaders(extra = {}) {
 }
 
 export default function AdminPage() {
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, loading: authLoading } = useAuth();
   const [activeTab, setActiveTab] = useState('dashboard');
   const [stats, setStats] = useState(null);
   const [products, setProducts] = useState([]);
@@ -35,6 +37,9 @@ export default function AdminPage() {
   const [savingStock, setSavingStock] = useState(null);
   const [toast, setToast] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [productPage, setProductPage] = useState(1);
+  const [productTotal, setProductTotal] = useState(0);
+  const PRODUCTS_PER_PAGE = 50;
   const fileInputRef = useRef(null);
   // ── Order detail popup ──
   const [selectedOrder, setSelectedOrder] = useState(null);
@@ -50,6 +55,8 @@ export default function AdminPage() {
   };
 
   useEffect(() => { loadData(); }, []);
+  useEffect(() => { loadProducts(productPage, searchTerm); }, [productPage]);
+
 
   const showToast = (msg) => {
     setToast(msg);
@@ -59,28 +66,49 @@ export default function AdminPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [statsRes, productsRes, ordersRes] = await Promise.all([
+      const [statsRes, ordersRes] = await Promise.all([
         fetch('/api/admin/stats', { headers: authHeaders() }),
-        fetch('/api/products?all=true'),   // GET is public — no auth needed
         fetch('/api/orders', { headers: authHeaders() }),
       ]);
-      const [statsFull, productsFull, ordersFull] = await Promise.all([
-        statsRes.json(), productsRes.json(), ordersRes.json(),
+      const [statsFull, ordersFull] = await Promise.all([
+        statsRes.json(), ordersRes.json(),
       ]);
-      
       const statsData = statsFull.data || {};
-      const productsData = productsFull.data || {};
       const ordersData = ordersFull.data || {};
-
       setStats(statsData);
-      setProducts(productsData.products || []);
       setOrders(ordersData.orders || []);
-      const stockMap = {};
-      (productsData.products || []).forEach(p => { stockMap[p.id] = p.stock; });
-      setInlineStock(stockMap);
     } catch (err) { console.error(err); }
+    // Load first page of products
+    await loadProducts(1, '');
     setLoading(false);
   };
+
+  const loadProducts = async (page = 1, search = '') => {
+    try {
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(PRODUCTS_PER_PAGE),
+        ...(search ? { search } : {}),
+      });
+      const res = await fetch(`/api/products?${params}`);
+      const json = await res.json();
+      const data = json.data || {};
+      const prods = data.products || [];
+      setProducts(prods);
+      setProductTotal(data.total || 0);
+      const stockMap = {};
+      prods.forEach(p => { stockMap[p.id] = p.stock; });
+      setInlineStock(stockMap);
+    } catch (err) { console.error('loadProducts error:', err); }
+  };
+
+  // Debounced search handler
+  const handleSearch = (val) => {
+    setSearchTerm(val);
+    setProductPage(1);
+    loadProducts(1, val);
+  };
+
 
   // ── Image file → base64 → preview ──
   const handleImageFile = (e) => {
@@ -175,7 +203,8 @@ export default function AdminPage() {
       setShowModal(false);
       setEditingProduct(null);
       setForm(EMPTY_PRODUCT);
-      loadData();
+      loadProducts(productPage, searchTerm);
+
     } catch (err) { 
       console.error(err);
       alert('Edit Error: ' + err.message);
@@ -189,7 +218,8 @@ export default function AdminPage() {
     try {
       await fetch(`/api/products/${id}`, { method: 'DELETE', headers: authHeaders() });
       showToast('🗑️ Product deleted');
-      loadData();
+      loadProducts(productPage, searchTerm);
+
     } catch { showToast('❌ Failed to delete'); }
   };
 
@@ -243,13 +273,20 @@ export default function AdminPage() {
     } catch { showToast('❌ Failed to update order'); }
   };
 
-  const filteredProducts = products.filter(p =>
-    p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (p.brandName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Products are already filtered server-side via search
+  const filteredProducts = products;
+  const totalPages = Math.ceil(productTotal / PRODUCTS_PER_PAGE);
+
 
   // ── Access guard ──
+  if (authLoading) {
+    return (
+      <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="loading-spinner"></div>
+      </div>
+    );
+  }
+
   if (!user || !isAdmin) {
     return (
       <div className="container">
@@ -264,7 +301,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="admin-layout">
+    <div className="admin-layout" suppressHydrationWarning>
       {/* Toast */}
       {toast && (
         <div style={{
@@ -282,7 +319,7 @@ export default function AdminPage() {
           <div style={{ fontSize: 12, opacity: 0.6, marginTop: 4 }}>{user.email}</div>
         </div>
         <button className={`admin-nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>📊 Dashboard</button>
-        <button className={`admin-nav-item ${activeTab === 'products' ? 'active' : ''}`} onClick={() => setActiveTab('products')}>💊 Products ({products.length})</button>
+        <button className={`admin-nav-item ${activeTab === 'products' ? 'active' : ''}`} onClick={() => setActiveTab('products')}>💊 Products ({productTotal})</button>
         <button className={`admin-nav-item ${activeTab === 'orders' ? 'active' : ''}`} onClick={() => setActiveTab('orders')}>📦 Orders ({orders.length})</button>
         <Link href="/" className="admin-nav-item" style={{ marginTop: 'auto' }}>🏠 Back to Store</Link>
       </aside>
@@ -346,13 +383,13 @@ export default function AdminPage() {
             {activeTab === 'products' && (
               <div className="fade-in">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-lg)', flexWrap: 'wrap', gap: 12 }}>
-                  <h2>💊 Products ({filteredProducts.length})</h2>
+                  <h2>💊 Products ({productTotal} total)</h2>
                   <div style={{ display: 'flex', gap: 10 }}>
                     <input
                       className="form-input"
                       placeholder="🔍 Search products..."
                       value={searchTerm}
-                      onChange={e => setSearchTerm(e.target.value)}
+                      onChange={e => handleSearch(e.target.value)}
                       style={{ width: 220, margin: 0 }}
                     />
                     <button className="btn btn-primary" onClick={() => { setEditingProduct(null); setForm(EMPTY_PRODUCT); setShowModal(true); }}>
@@ -361,69 +398,35 @@ export default function AdminPage() {
                   </div>
                 </div>
 
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="admin-table">
-                    <thead>
-                      <tr>
-                        <th>Image</th>
-                        <th>Product Name</th>
-                        <th>Brand</th>
-                        <th>Category</th>
-                        <th>Price</th>
-                        <th>Stock (edit inline)</th>
-                        <th>Rating</th>
-                        <th>Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredProducts.map(product => (
-                        <tr key={product.id}>
-                          <td>
-                            {product.imageUrl ? (
-                              <img
-                                src={product.imageUrl}
-                                alt={product.name}
-                                style={{ width: 48, height: 48, objectFit: 'contain', borderRadius: 6, background: '#f5f5f5', border: '1px solid #e0e0e0' }}
-                                onError={e => { e.target.style.display = 'none'; }}
-                              />
-                            ) : (
-                              <div style={{ width: 48, height: 48, background: '#f0f7f4', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20 }}>💊</div>
-                            )}
-                          </td>
-                          <td style={{ fontWeight: 600, maxWidth: 180 }}>{product.name}</td>
-                          <td style={{ fontSize: 13 }}>{product.brandName}</td>
-                          <td><span className="badge badge-green">{product.category}</span></td>
-                          <td style={{ fontWeight: 600 }}>{formatPrice(product.price)}</td>
-                          <td>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                              <input
-                                type="number"
-                                min="0"
-                                value={inlineStock[product.id] ?? product.stock}
-                                onChange={e => setInlineStock(prev => ({ ...prev, [product.id]: e.target.value }))}
-                                style={{ width: 70, padding: '4px 8px', border: '1px solid #ddd', borderRadius: 6, fontSize: 13, textAlign: 'center' }}
-                              />
-                              <button
-                                onClick={() => saveInlineStock(product.id)}
-                                disabled={savingStock === product.id}
-                                style={{ padding: '4px 10px', background: '#1B4332', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12, fontWeight: 600 }}
-                              >
-                                {savingStock === product.id ? '...' : 'Save'}
-                              </button>
-                            </div>
-                          </td>
-                          <td>⭐ {product.rating}</td>
-                          <td>
-                            <div style={{ display: 'flex', gap: 6 }}>
-                              <button className="btn btn-sm btn-secondary" onClick={() => handleEdit(product)} title="Edit product">✏️ Edit</button>
-                              <button className="btn btn-sm btn-danger" onClick={() => handleDelete(product.id)} title="Delete product">🗑️ Delete</button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                <ProductsTable 
+                  products={filteredProducts}
+                  inlineStock={inlineStock}
+                  setInlineStock={setInlineStock}
+                  savingStock={savingStock}
+                  saveInlineStock={saveInlineStock}
+                  handleEdit={handleEdit}
+                  handleDelete={handleDelete}
+                />
+                {/* Pagination */}
+                {totalPages > 1 && (
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 20, padding: '12px 0' }}>
+                    <button
+                      onClick={() => setProductPage(p => Math.max(1, p - 1))}
+                      disabled={productPage === 1}
+                      style={{ padding: '6px 16px', borderRadius: 8, border: '1px solid #ddd', background: productPage === 1 ? '#f0f0f0' : '#1B4332', color: productPage === 1 ? '#999' : '#fff', cursor: productPage === 1 ? 'not-allowed' : 'pointer', fontWeight: 600 }}
+                    >
+                      ← Prev
+                    </button>
+                    <span style={{ fontSize: 14, color: 'var(--gray-600)' }}>Page {productPage} of {totalPages}</span>
+                    <button
+                      onClick={() => setProductPage(p => Math.min(totalPages, p + 1))}
+                      disabled={productPage === totalPages}
+                      style={{ padding: '6px 16px', borderRadius: 8, border: '1px solid #ddd', background: productPage === totalPages ? '#f0f0f0' : '#1B4332', color: productPage === totalPages ? '#999' : '#fff', cursor: productPage === totalPages ? 'not-allowed' : 'pointer', fontWeight: 600 }}
+                    >
+                      Next →
+                    </button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -438,70 +441,11 @@ export default function AdminPage() {
                     <p>Orders will appear here when customers place them.</p>
                   </div>
                 ) : (
-                  <div style={{ overflowX: 'auto' }}>
-                    <table className="admin-table">
-                      <thead>
-                        <tr>
-                          <th>Order ID</th>
-                          <th>Date</th>
-                          <th>Customer</th>
-                          <th>City</th>
-                          <th>Items</th>
-                          <th>Total</th>
-                          <th>Payment</th>
-                          <th>Status</th>
-                          <th>Update Status</th>
-                          <th>Details</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {orders.map(order => (
-                          <tr key={order.id} style={{ cursor: 'pointer' }} onClick={() => openOrderDetail(order)}>
-                            <td style={{ fontWeight: 600, fontSize: 12 }}>{order.id?.slice(-8) || order._id}</td>
-                            <td style={{ fontSize: 12 }}>{new Date(order.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: '2-digit' })}</td>
-                            <td style={{ fontWeight: 500 }}>{order.address?.fullName || order.userId}</td>
-                            <td style={{ fontSize: 12 }}>{order.address?.city || '—'}</td>
-                            <td>
-                              <div style={{ fontSize: 12 }}>
-                                {order.items?.slice(0, 2).map((item, i) => (
-                                  <div key={i} style={{ whiteSpace: 'nowrap' }}>{item.name} × {item.quantity}</div>
-                                ))}
-                                {order.items?.length > 2 && <div style={{ color: 'var(--gray-500)' }}>+{order.items.length - 2} more</div>}
-                              </div>
-                            </td>
-                            <td style={{ fontWeight: 700, color: 'var(--green-700)' }}>{formatPrice(order.total)}</td>
-                            <td style={{ textTransform: 'uppercase', fontSize: 11 }}>
-                              <span className="badge badge-green">{order.paymentMethod}</span>
-                            </td>
-                            <td><span className={`order-status ${order.status}`}>{order.status}</span></td>
-                            <td onClick={e => e.stopPropagation()}>
-                              <select
-                                className="sort-select"
-                                value={order.status}
-                                onChange={e => handleOrderStatus(order.id, e.target.value)}
-                                style={{ fontSize: 12, padding: '4px 8px' }}
-                              >
-                                <option value="confirmed">✅ Confirmed</option>
-                                <option value="processing">⚙️ Processing</option>
-                                <option value="shipped">🚚 Shipped</option>
-                                <option value="delivered">📬 Delivered</option>
-                                <option value="cancelled">❌ Cancelled</option>
-                              </select>
-                            </td>
-                            <td onClick={e => e.stopPropagation()}>
-                              <button
-                                className="btn btn-sm btn-secondary"
-                                onClick={() => openOrderDetail(order)}
-                                style={{ fontSize: 11, whiteSpace: 'nowrap' }}
-                              >
-                                👁 View
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
+                  <OrdersTable 
+                    orders={orders}
+                    openOrderDetail={openOrderDetail}
+                    handleOrderStatus={handleOrderStatus}
+                  />
                 )}
               </div>
             )}

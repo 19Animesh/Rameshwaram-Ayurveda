@@ -21,8 +21,9 @@ export default function CartPage() {
     );
   }
 
-  const deliveryCharge = cartTotal >= 500 ? 0 : 49;
+  const deliveryCharge = 100;
   const totalAmount = cartTotal + deliveryCharge;
+
 
   return (
     <>
@@ -78,16 +79,9 @@ export default function CartPage() {
               <span>{formatPrice(cartTotal)}</span>
             </div>
             <div className="summary-row">
-              <span>Delivery</span>
-              <span style={{ color: deliveryCharge === 0 ? 'var(--success)' : 'inherit' }}>
-                {deliveryCharge === 0 ? 'FREE' : formatPrice(deliveryCharge)}
-              </span>
+              <span>Delivery Charge</span>
+              <span>{formatPrice(deliveryCharge)}</span>
             </div>
-            {deliveryCharge > 0 && (
-              <div style={{ fontSize: 12, color: 'var(--success)', padding: '4px 0' }}>
-                Add {formatPrice(500 - cartTotal)} more for FREE delivery!
-              </div>
-            )}
             <div className="summary-row total">
               <span>Total</span>
               <span>{formatPrice(totalAmount)}</span>

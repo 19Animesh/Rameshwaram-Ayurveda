@@ -3,6 +3,7 @@ import connectToDatabase from '@/lib/mongodb';
 import User from '@/models/User';
 import OTP from '@/models/OTP';
 import { signToken } from '@/lib/auth';
+import bcrypt from 'bcryptjs';
 import { successResponse, errorResponse } from '@/lib/apiResponse';
 
 export async function POST(request) {
@@ -18,12 +19,11 @@ export async function POST(request) {
     // 1. Find a valid, unused, non-expired OTP
     const validOtp = await OTP.findOne({
       emailOrPhone: identifier,
-      code: otp,
       used: false,
       expiresAt: { $gt: new Date() },
     }).sort({ createdAt: -1 });
 
-    if (!validOtp) {
+    if (!validOtp || !(await bcrypt.compare(otp, validOtp.code))) {
       return errorResponse('Invalid or expired OTP. Please request a new one.', 400);
     }
 

@@ -25,9 +25,24 @@ export async function GET() {
     <lastmod>${new Date().toISOString().split('T')[0]}</lastmod>
   </url>`).join('');
 
+  let productUrls = '';
+  try {
+    const connectToDatabase = (await import('@/lib/mongodb')).default;
+    const Product = (await import('@/models/Product')).default;
+    await connectToDatabase();
+    const products = await Product.find({}).select('_id').lean();
+    productUrls = products.map(p => `
+  <url>
+    <loc>${baseUrl}/products/${p._id}</loc>
+    <priority>0.8</priority>
+    <changefreq>weekly</changefreq>
+  </url>`).join('');
+  } catch(e) { console.error('sitemap products fetch failed', e); }
+
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${staticUrls}
+${productUrls}
 </urlset>`;
 
   return new NextResponse(xml, {

@@ -90,7 +90,6 @@ export default function PrivacyPolicyPage() {
           <ul>
             <li>Razorpay handles all sensitive payment data under their own privacy and security policies.</li>
             <li>We store only the <strong>Razorpay Order ID</strong> and <strong>Payment ID</strong> for order tracking and dispute resolution.</li>
-            <li>For <strong>Cash on Delivery (COD)</strong> orders, no payment data is collected at checkout. Payment is made directly to the delivery partner at the time of delivery.</li>
           </ul>
           <p>
             We encourage you to review{' '}

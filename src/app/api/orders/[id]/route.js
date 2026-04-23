@@ -8,8 +8,8 @@ function deserialiseOrder(order) {
   return {
     ...order,
     total: order.totalAmount,
-    address: (() => {
-      try { return JSON.parse(order.shippingAddr); } catch { return {}; }
+    address: order.shippingAddress || (() => {
+      try { return JSON.parse(order.shippingAddr || '{}'); } catch { return {}; }
     })(),
     statusHistory: [{ status: order.status, date: order.updatedAt, note: `Order ${order.status}` }],
   };
@@ -32,9 +32,12 @@ export async function GET(request, { params }) {
 
     // Done above
 
-    // Optional: restrict to order owner or admin
+    // Strict ownership check: restrict to order owner or admin
     const authUser = getUserFromRequest(request);
-    if (authUser && authUser.role !== 'admin' && order.userId && order.userId !== authUser.userId) {
+    if (!authUser) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    if (authUser.role !== 'admin' && order.userId && order.userId.toString() !== authUser.userId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

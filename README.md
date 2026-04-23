@@ -6,7 +6,7 @@ A premium, full-stack Ayurvedic e-commerce platform built with **Next.js 14**, *
 
 - **Storefront**: Browse a curated catalog of 350+ traditional Ayurvedic medicines organized by category and brand.
 - **Dynamic Filtering**: Advanced discovery system allowing users to filter by Category (Immunity, Digestion, etc.) and Brand, with options fetched dynamically from the database.
-- **Authentication**: Secure, password-less authentication using a custom **OTP (One-Time Password)** flow.
+- **Authentication**: Secure registration and login flow utilizing **bcrypt** password hashing paired with a **One-Time Password (OTP)** verification system for verified accounts.
 - **High-Performance Media**: Optimized image delivery powered by **Cloudinary**, featuring deterministic asset management and responsive loading.
 - **Secure Payments**: Integrated with **Razorpay** for a reliable and localized checkout experience.
 - **Admin Dashboard**: A centralized command center for tracking order statistics, managing inventory, and performing real-time CRUD operations on products.

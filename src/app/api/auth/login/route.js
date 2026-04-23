@@ -22,7 +22,7 @@ const loginSchema = z.object({
 export async function POST(request) {
   try {
     const ip = request.headers.get('x-forwarded-for') || 'unknown';
-    if (!checkRateLimit(ip, 5, 60000)) { // Max 5 login attempts per minute per IP
+    if (!(await checkRateLimit(ip, 5, 60000))) { // Max 5 login attempts per minute per IP
       return errorResponse('Too many login attempts', 429);
     }
 
@@ -73,11 +73,12 @@ export async function POST(request) {
 
     if (!isVerified) {
       const otpCode = generateOTP();
+      const otpHash = await bcrypt.hash(otpCode, 10);
 
       await connectToDatabase();
       await OTP.create({
         emailOrPhone: loginId,
-        code: otpCode,
+        code: otpHash,
         expiresAt: new Date(Date.now() + 10 * 60 * 1000),
       });
 

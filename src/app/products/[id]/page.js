@@ -184,26 +184,7 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
-        {/* Reviews Section */}
-        {product.reviews && product.reviews.length > 0 && (
-          <div className="reviews-section">
-            <h2>Customer Reviews ({product.reviews.length})</h2>
-            {product.reviews.map((review, i) => (
-              <div key={i} className="review-card">
-                <div className="review-header">
-                  <div>
-                    <span className="review-user">{review.user}</span>
-                    <div className="stars" style={{ fontSize: '14px' }}>{getStars(review.rating)}</div>
-                  </div>
-                  <span className="review-date">
-                    {new Date(review.date).toLocaleDateString('en-IN', { year: 'numeric', month: 'short', day: 'numeric' })}
-                  </span>
-                </div>
-                <p className="review-comment">{review.comment}</p>
-              </div>
-            ))}
-          </div>
-        )}
+
       </div>
     </>
   );

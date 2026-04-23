@@ -1,8 +1,11 @@
 import { NextResponse } from 'next/server';
 import { jwtVerify } from 'jose';
 
-// ✅ Must match the fallback in src/lib/auth.js — both must be identical
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'rameshwaram-ayurveda-super-secret-2026');
+const secretStr = process.env.JWT_SECRET;
+if (!secretStr) {
+  throw new Error('FATAL: JWT_SECRET environment variable is not defined.');
+}
+const JWT_SECRET = new TextEncoder().encode(secretStr);
 
 export async function middleware(request) {
   const { pathname } = request.nextUrl;

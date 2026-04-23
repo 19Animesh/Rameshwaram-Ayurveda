@@ -15,8 +15,8 @@ export async function getOrders(userId = null) {
       ...rawForm,
       id: rawForm._id?.toString(),
       total: rawForm.totalAmount, // Map strict MongoDB field to loose component binding
-      address: (() => {
-        try { return JSON.parse(rawForm.shippingAddr); } catch { return rawForm.shippingAddr || {}; }
+      address: rawForm.shippingAddress || (() => {
+        try { return JSON.parse(rawForm.shippingAddr || '{}'); } catch { return rawForm.shippingAddr || {}; }
       })(),
     };
   });

@@ -45,36 +45,7 @@ export async function GET(request) {
 }
 
 export async function POST(request) {
-  try {
-    const ip = request.headers.get('x-forwarded-for') || 'unknown';
-    if (!checkRateLimit(ip, 10, 60000)) { // Max 10 orders per minute per IP
-      return errorResponse('Too many requests', 429);
-    }
-
-    const orderData = await request.json();
-    
-    const parsed = orderSchema.safeParse(orderData);
-    if (!parsed.success) {
-      return errorResponse('Invalid order data', 400, parsed.error.format());
-    }
-
-    const order = await placeOrder({
-      ...parsed.data, 
-      totalAmount: parsed.data.total 
-    });
-
-    return successResponse({
-      order: {
-        ...order,
-        address: (() => {
-          try { return JSON.parse(order.shippingAddr); } catch { return {}; }
-        })(),
-        total: order.totalAmount,
-        statusHistory: [{ status: 'confirmed', date: order.createdAt, note: 'Order confirmed' }],
-      }
-    }, 201);
-  } catch (error) {
-    console.error('Orders POST Error:', error);
-    return errorResponse('Failed to place order');
-  }
+  // ⛔ INSECURE ROUTE DISABLED.
+  // Order creation is now strictly handled through /api/payment/verify
+  return errorResponse('Method Not Allowed: Use /api/payment/create-order and /api/payment/verify to create orders.', 405);
 }
