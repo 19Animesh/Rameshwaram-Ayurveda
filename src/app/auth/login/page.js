@@ -25,8 +25,9 @@ export default function LoginPage() {
       if (res && res.requireVerification) {
         setOtpMode(true);
       } else {
-        clearCart();
-        router.push('/');
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirectUrl = urlParams.get('redirect') || '/';
+        router.push(redirectUrl);
       }
     } catch (err) {
       setError(err.message);
@@ -40,8 +41,9 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await verifyOtp(identifier, otp);
-      clearCart();
-      router.push('/');
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectUrl = urlParams.get('redirect') || '/';
+      router.push(redirectUrl);
     } catch (err) {
       setError(err.message);
     }

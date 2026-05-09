@@ -6,21 +6,31 @@ const CartContext = createContext();
 export function CartProvider({ children }) {
   const [cart, setCart] = useState([]);
   const [wishlist, setWishlist] = useState([]);
+  const [isInitialized, setIsInitialized] = useState(false);
 
   useEffect(() => {
-    const savedCart = localStorage.getItem('ayurvedic_cart');
-    const savedWishlist = localStorage.getItem('ayurvedic_wishlist');
-    if (savedCart) setCart(JSON.parse(savedCart));
-    if (savedWishlist) setWishlist(JSON.parse(savedWishlist));
+    try {
+      const savedCart = localStorage.getItem('ayurvedic_cart');
+      const savedWishlist = localStorage.getItem('ayurvedic_wishlist');
+      if (savedCart) setCart(JSON.parse(savedCart));
+      if (savedWishlist) setWishlist(JSON.parse(savedWishlist));
+    } catch (e) {
+      console.error('Failed to parse cart/wishlist from local storage', e);
+    }
+    setIsInitialized(true);
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('ayurvedic_cart', JSON.stringify(cart));
-  }, [cart]);
+    if (isInitialized) {
+      localStorage.setItem('ayurvedic_cart', JSON.stringify(cart));
+    }
+  }, [cart, isInitialized]);
 
   useEffect(() => {
-    localStorage.setItem('ayurvedic_wishlist', JSON.stringify(wishlist));
-  }, [wishlist]);
+    if (isInitialized) {
+      localStorage.setItem('ayurvedic_wishlist', JSON.stringify(wishlist));
+    }
+  }, [wishlist, isInitialized]);
 
   const addToCart = (product, quantity = 1) => {
     const maxStock = product.stock ?? Infinity; // Respect stock limit

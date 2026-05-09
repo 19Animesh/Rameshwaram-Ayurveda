@@ -43,7 +43,7 @@ const DELIVERY_CHARGE = 100; // ₹100 flat delivery charge
 
 export default function CheckoutPage() {
   const { cart, cartTotal, clearCart } = useCart();
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
   const [orderPlaced, setOrderPlaced] = useState(false);
   const [finalOrderState, setFinalOrderState] = useState(null);
@@ -59,12 +59,12 @@ export default function CheckoutPage() {
     pincode: '',
   });
 
-  // Client-side guard against manual URL manipulation bypassing the middleware
+  // Client-side guard: only redirect once auth check is complete and user is confirmed not logged in
   useEffect(() => {
-    if (!user) {
+    if (!authLoading && !user) {
       router.push('/auth/login?redirect=/checkout');
     }
-  }, [user, router]);
+  }, [authLoading, user, router]);
 
   // Auto-fill name & phone from logged-in user profile
   useEffect(() => {

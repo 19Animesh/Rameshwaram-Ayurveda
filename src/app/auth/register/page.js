@@ -38,7 +38,9 @@ export default function RegisterPage() {
         setOtpMode(true);
         setResendCooldown(30);
       } else {
-        router.push('/');
+        const urlParams = new URLSearchParams(window.location.search);
+        const redirectUrl = urlParams.get('redirect') || '/';
+        router.push(redirectUrl);
       }
     } catch (err) {
       setError(err.message);
@@ -53,7 +55,9 @@ export default function RegisterPage() {
     try {
       const identifier = email || phone;
       await verifyOtp(identifier, otp);
-      router.push('/');
+      const urlParams = new URLSearchParams(window.location.search);
+      const redirectUrl = urlParams.get('redirect') || '/';
+      router.push(redirectUrl);
     } catch (err) {
       setError(err.message);
     }
