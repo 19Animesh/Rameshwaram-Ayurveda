@@ -21,7 +21,9 @@ export default function CartPage() {
     );
   }
 
-  const deliveryCharge = 100;
+  const DELIVERY_FREE_THRESHOLD = 500;
+  const DELIVERY_CHARGE = 100;
+  const deliveryCharge = cartTotal > DELIVERY_FREE_THRESHOLD ? 0 : DELIVERY_CHARGE;
   const totalAmount = cartTotal + deliveryCharge;
 
 

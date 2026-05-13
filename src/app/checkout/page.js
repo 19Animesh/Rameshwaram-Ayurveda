@@ -351,12 +351,12 @@ export default function CheckoutPage() {
                   <div className="form-group">
                     <label>City *</label>
                     <input className="form-input" type="text" value={address.city}
-                      onChange={e => setAddress({...address, city: e.target.value})} required readOnly style={{ backgroundColor: 'var(--gray-50)', color: 'var(--gray-500)', cursor: 'not-allowed' }}/>
+                      onChange={e => setAddress({...address, city: e.target.value})} required />
                   </div>
                   <div className="form-group">
                     <label>State *</label>
                     <input className="form-input" type="text" value={address.state}
-                      onChange={e => setAddress({...address, state: e.target.value})} required readOnly style={{ backgroundColor: 'var(--gray-50)', color: 'var(--gray-500)', cursor: 'not-allowed' }}/>
+                      onChange={e => setAddress({...address, state: e.target.value})} required />
                   </div>
                 </div>
               </div>

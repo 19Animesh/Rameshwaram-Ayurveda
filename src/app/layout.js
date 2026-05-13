@@ -6,7 +6,7 @@ import Footer from '@/components/Footer';
 import { Analytics } from '@vercel/analytics/react';
 
 export const metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'),
   title: 'Rameshwaram Ayurveda — Premium Ayurvedic Medicines Online',
   description: 'Shop authentic Ayurvedic medicines from trusted brands at Rameshwaram Ayurveda. Browse immunity boosters, digestive aids, skincare, and more with home delivery.',
   keywords: ['Rameshwaram Ayurveda', 'Ayurvedic medicines', 'herbal remedies', 'natural health', 'immunity', 'digestion', 'skincare'],

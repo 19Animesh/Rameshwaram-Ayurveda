@@ -8,10 +8,6 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'res.cloudinary.com',
       },
-      {
-        protocol: 'https',
-        hostname: '**', // Allow any https image source
-      },
     ],
     // Also allow unoptimized local images served from /public
     unoptimized: false,

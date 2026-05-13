@@ -3,6 +3,7 @@ import connectToDatabase from '@/lib/mongodb';
 import User from '@/models/User';
 import OTP from '@/models/OTP';
 import { sendOtpEmail } from '@/lib/mailer';
+import bcrypt from 'bcryptjs';
 
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -40,7 +41,6 @@ export async function POST(request) {
 
     // Generate fresh OTP
     const otpCode = generateOTP();
-    const bcrypt = require('bcryptjs');
     const otpHash = await bcrypt.hash(otpCode, 10);
     await OTP.create({
       emailOrPhone: identifier,

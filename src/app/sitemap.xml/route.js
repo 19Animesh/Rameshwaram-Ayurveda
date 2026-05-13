@@ -6,7 +6,7 @@ import { NextResponse } from 'next/server';
  * are automatically included.
  */
 export async function GET() {
-  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://rameshwaramayurveda.com';
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://rameshwaramayurveda.com';
 
   // Static pages
   const staticPages = [
