@@ -29,17 +29,17 @@ import { addressSchema } from '@/lib/validation';
 
 const KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
 
-if (!KEY_SECRET) {
-  console.error('[payment/verify] RAZORPAY_KEY_SECRET is not set!');
-}
-
-// Flat ₹100 delivery charge (no free-delivery threshold)
 const DELIVERY_CHARGE    = 100;
 
 
 export async function POST(request) {
   try {
     // ── 1. Rate-limit ──────────────────────────────────────────────────────
+    if (!KEY_SECRET) {
+      console.error('[payment/verify] RAZORPAY_KEY_SECRET is not set at runtime');
+      return NextResponse.json({ error: 'Payment service misconfigured' }, { status: 500 });
+    }
+
     const ip = request.headers.get('x-forwarded-for') || 'unknown';
     if (!(await checkRateLimit(ip, 10, 60000))) {
       return NextResponse.json({ error: 'Too many requests' }, { status: 429 });

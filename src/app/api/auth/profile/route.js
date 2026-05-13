@@ -4,6 +4,8 @@ import User from '@/models/User';
 import Address from '@/models/Address';
 import { getUserFromRequest } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 /** GET /api/auth/profile — fetch full profile including addresses */
 export async function GET(request) {
   try {

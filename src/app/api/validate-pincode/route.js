@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 
+export const dynamic = 'force-dynamic';
+
 // Fallback data for common Indian pincodes in case external API is down
 const PINCODE_FALLBACK = {
   '243001': { city: 'Bareilly', state: 'Uttar Pradesh' },
