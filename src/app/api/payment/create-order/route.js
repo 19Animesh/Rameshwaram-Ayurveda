@@ -34,8 +34,12 @@ function getRazorpayInstance() {
   return new Razorpay({ key_id: KEY_ID, key_secret: KEY_SECRET });
 }
 
-// Flat ₹100 delivery charge (no free-delivery threshold)
+// Delivery charge: free above ₹500 subtotal, otherwise ₹100
 const DELIVERY_CHARGE = 100;
+const MAX_QTY_PER_ITEM = 99;
+
+// Basic MongoDB ObjectId format check: 24 hex characters
+const OBJECTID_RE = /^[a-fA-F0-9]{24}$/;
 
 
 export async function POST(request) {
@@ -60,14 +64,28 @@ export async function POST(request) {
       return NextResponse.json({ error: 'items array is required and must not be empty' }, { status: 400 });
     }
 
-    // Each item must have a productId (string/ObjectId) and a positive quantity
+    // Validate each item thoroughly before touching the DB
+    const seenIds = new Set();
     for (const item of items) {
-      if (!item.productId || typeof item.productId !== 'string') {
+      // productId must be a string matching MongoDB ObjectId format
+      if (!item.productId || typeof item.productId !== 'string' || !OBJECTID_RE.test(item.productId)) {
         return NextResponse.json({ error: 'Each item must have a valid productId' }, { status: 400 });
       }
-      if (!Number.isInteger(item.quantity) || item.quantity < 1) {
-        return NextResponse.json({ error: `Quantity for product ${item.productId} must be a positive integer` }, { status: 400 });
+      // quantity must be a positive integer within a reasonable range
+      if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > MAX_QTY_PER_ITEM) {
+        return NextResponse.json(
+          { error: `Quantity for product ${item.productId} must be 1–${MAX_QTY_PER_ITEM}` },
+          { status: 400 }
+        );
       }
+      // Reject duplicate productIds — prevents ambiguous stock/price handling
+      if (seenIds.has(item.productId)) {
+        return NextResponse.json(
+          { error: `Duplicate productId: ${item.productId} — merge quantities instead` },
+          { status: 400 }
+        );
+      }
+      seenIds.add(item.productId);
     }
 
     // ── 4. Fetch prices from DB (authoritative source) ─────────────────────
@@ -77,12 +95,13 @@ export async function POST(request) {
     const products   = await Product.find({ _id: { $in: productIds } }).select('_id name price stock').lean();
 
     if (products.length !== productIds.length) {
-      const foundIds = products.map(p => p._id.toString());
-      const missing  = productIds.filter(id => !foundIds.includes(id));
-      return NextResponse.json({ error: `Products not found: ${missing.join(', ')}` }, { status: 404 });
+      const foundIds = new Set(products.map(p => p._id.toString()));
+      const missing  = productIds.filter(id => !foundIds.has(id));
+      return NextResponse.json({ error: `Products not found: ${missing.join(', ')}` }, { status: 400 });
     }
 
     // ── 5. Stock check + server-side total calculation ─────────────────────
+    // PRICE IS NEVER READ FROM THE CLIENT — only from MongoDB below.
     const productMap = Object.fromEntries(products.map(p => [p._id.toString(), p]));
     let subtotal = 0;
 
@@ -97,11 +116,13 @@ export async function POST(request) {
       subtotal += product.price * item.quantity;
     }
 
+    // Delivery charge: free above ₹500 subtotal, otherwise ₹100
+    // CHARGE IS NEVER READ FROM THE CLIENT — computed here.
     const deliveryCharge = subtotal > 500 ? 0 : DELIVERY_CHARGE;
     const totalAmount    = subtotal + deliveryCharge; // in ₹
 
 
-    // ── 6. Create Razorpay order ──────────────────────────────────────────
+    // ── 6. Create Razorpay order using the server-computed total only ──────
     const receipt = `rcpt_${crypto.randomBytes(8).toString('hex')}`;
 
     const razorpay = getRazorpayInstance();
