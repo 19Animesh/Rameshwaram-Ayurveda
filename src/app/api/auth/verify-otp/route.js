@@ -35,11 +35,26 @@ export async function POST(request) {
       expiresAt: { $gt: new Date() },
     }).sort({ createdAt: -1 });
 
-    if (!validOtp || !(await bcrypt.compare(otp, validOtp.code))) {
+    if (!validOtp) {
       return errorResponse('Invalid or expired OTP. Please request a new one.', 400);
     }
 
-    // 2. Find the user
+    // 2. Verify OTP code and track failed attempts
+    const isMatch = await bcrypt.compare(otp, validOtp.code);
+    if (!isMatch) {
+      const updated = await OTP.findByIdAndUpdate(
+        validOtp._id,
+        { $inc: { attempts: 1 } },
+        { new: true }
+      );
+      // Invalidate OTP after 5 failed attempts to prevent brute force
+      if (updated.attempts >= 5) {
+        await OTP.findByIdAndUpdate(validOtp._id, { used: true });
+      }
+      return errorResponse('Invalid or expired OTP. Please request a new one.', 400);
+    }
+
+    // 3. Find the user
     const isEmail = identifier.includes('@');
     const existingUser = await User.findOne(
       isEmail ? { email: identifier } : { phone: identifier }
