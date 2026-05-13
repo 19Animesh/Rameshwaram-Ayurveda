@@ -5,13 +5,25 @@ import OTP from '@/models/OTP';
 import { signToken } from '@/lib/auth';
 import bcrypt from 'bcryptjs';
 import { successResponse, errorResponse } from '@/lib/apiResponse';
+import { checkRateLimit } from '@/lib/rateLimit';
 
 export async function POST(request) {
   try {
+    // Rate limit by IP: 10 verify attempts per minute per IP
+    const ip = request.headers.get('x-forwarded-for') || 'unknown';
+    if (!(await checkRateLimit(ip, 10, 60000, 'verify-otp-ip'))) {
+      return errorResponse('Too many verification attempts. Please try again later.', 429);
+    }
+
     const { identifier, otp } = await request.json();
 
     if (!identifier || !otp) {
       return errorResponse('Identifier (email/phone) and OTP are required', 400);
+    }
+
+    // Rate limit by identifier: 5 verify attempts per minute per email/phone
+    if (!(await checkRateLimit(identifier, 5, 60000, 'verify-otp-id'))) {
+      return errorResponse('Too many verification attempts for this account. Please try again later.', 429);
     }
 
     await connectToDatabase();

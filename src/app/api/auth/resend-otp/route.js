@@ -4,6 +4,7 @@ import User from '@/models/User';
 import OTP from '@/models/OTP';
 import { sendOtpEmail } from '@/lib/mailer';
 import bcrypt from 'bcryptjs';
+import { checkRateLimit } from '@/lib/rateLimit';
 
 function generateOTP() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -11,10 +12,21 @@ function generateOTP() {
 
 export async function POST(request) {
   try {
+    // Rate limit by IP: 3 resend attempts per minute per IP
+    const ip = request.headers.get('x-forwarded-for') || 'unknown';
+    if (!(await checkRateLimit(ip, 3, 60000, 'resend-otp-ip'))) {
+      return NextResponse.json({ error: 'Too many OTP resend attempts. Please try again later.' }, { status: 429 });
+    }
+
     const { identifier } = await request.json();
 
     if (!identifier) {
       return NextResponse.json({ error: 'Email or phone is required' }, { status: 400 });
+    }
+
+    // Rate limit by identifier: 3 resend attempts per 5 minutes per email/phone
+    if (!(await checkRateLimit(identifier, 3, 300000, 'resend-otp-id'))) {
+      return NextResponse.json({ error: 'Too many OTP resend attempts for this account. Please try again later.' }, { status: 429 });
     }
 
     await connectToDatabase();

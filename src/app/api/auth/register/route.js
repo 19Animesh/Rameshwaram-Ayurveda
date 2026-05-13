@@ -5,6 +5,7 @@ import OTP from '@/models/OTP';
 import bcrypt from 'bcryptjs';
 import { sendOtpEmail } from '@/lib/mailer';
 import { successResponse, errorResponse } from '@/lib/apiResponse';
+import { checkRateLimit } from '@/lib/rateLimit';
 
 // Helper to generate a 6-digit OTP
 function generateOTP() {
@@ -13,10 +14,22 @@ function generateOTP() {
 
 export async function POST(request) {
   try {
+    // Rate limit by IP: 5 registration attempts per minute per IP
+    const ip = request.headers.get('x-forwarded-for') || 'unknown';
+    if (!(await checkRateLimit(ip, 5, 60000, 'register-ip'))) {
+      return errorResponse('Too many registration attempts. Please try again later.', 429);
+    }
+
     const { name, email, password, phone } = await request.json();
     
     if (!name || (!email && !phone) || !password) {
       return errorResponse('Name, password, and either email or phone are required', 400);
+    }
+
+    // Rate limit by identifier: 3 registration attempts per minute per email/phone
+    const identifier = email || phone;
+    if (!(await checkRateLimit(identifier, 3, 60000, 'register-id'))) {
+      return errorResponse('Too many registration attempts for this email or phone. Please try again later.', 429);
     }
 
     // Check if user already exists
@@ -50,7 +63,6 @@ export async function POST(request) {
     
     // Generate and save OTP
     const otpCode = generateOTP();
-    const identifier = email || phone;
     const otpHash = await bcrypt.hash(otpCode, 10);
     
     await OTP.create({
