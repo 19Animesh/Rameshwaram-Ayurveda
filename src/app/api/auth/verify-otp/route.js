@@ -64,9 +64,7 @@ export async function POST(request) {
       return errorResponse('User not found', 404);
     }
 
-    const updateData = isEmail
-      ? { isEmailVerified: true }
-      : { isPhoneVerified: true };
+    const updateData = { isPhoneVerified: true };
 
     // 3. Sequential update
     await OTP.findByIdAndUpdate(validOtp._id, { used: true });

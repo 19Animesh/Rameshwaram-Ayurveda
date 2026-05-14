@@ -69,7 +69,7 @@ export async function POST(request) {
       return response;
     }
 
-    const isVerified = isEmail ? user.isEmailVerified : user.isPhoneVerified;
+    const isVerified = user.isPhoneVerified;
 
     if (!isVerified) {
       const otpCode = generateOTP();

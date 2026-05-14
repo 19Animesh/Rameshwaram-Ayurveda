@@ -41,7 +41,7 @@ export async function POST(request) {
       return NextResponse.json({ error: 'No account found for this identifier' }, { status: 404 });
     }
 
-    if (isEmail ? user.isEmailVerified : user.isPhoneVerified) {
+    if (user.isPhoneVerified) {
       return NextResponse.json({ error: 'Account is already verified' }, { status: 400 });
     }
 

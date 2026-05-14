@@ -57,7 +57,6 @@ export async function POST(request) {
       ...(email ? { email } : {}),
       ...(phone ? { phone } : {}),
       passwordHash,
-      isEmailVerified: false,
       isPhoneVerified: false
     });
     

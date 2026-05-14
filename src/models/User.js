@@ -6,7 +6,6 @@ const userSchema = new mongoose.Schema({
   phone: { type: String, unique: true, sparse: true },
   passwordHash: { type: String, required: true },
   role: { type: String, default: 'user' },
-  isEmailVerified: { type: Boolean, default: false },
   isPhoneVerified: { type: Boolean, default: false }
 }, { timestamps: true });
 
