@@ -3,6 +3,7 @@ import connectToDatabase from '@/lib/mongodb';
 import User from '@/models/User';
 import OTP from '@/models/OTP';
 import { sendOtpEmail } from '@/lib/mailer';
+import { sendOtpSms, isMsg91Configured } from '@/lib/msg91';
 import bcrypt from 'bcryptjs';
 import { checkRateLimit } from '@/lib/rateLimit';
 
@@ -45,6 +46,12 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Account is already verified' }, { status: 400 });
     }
 
+    // For phone identifiers, verify MSG91 is configured before
+    // creating a fresh OTP record to prevent wasted DB writes.
+    if (!isEmail && !isMsg91Configured()) {
+      return NextResponse.json({ error: 'SMS service is not configured. Please contact support.' }, { status: 500 });
+    }
+
     // Invalidate all previous unused OTPs for this identifier
     await OTP.updateMany(
       { emailOrPhone: identifier, used: false },
@@ -60,13 +67,26 @@ export async function POST(request) {
       expiresAt: new Date(Date.now() + 10 * 60 * 1000), // 10 min
     });
 
-    // Send OTP via email
+    // Send OTP — via email for email identifiers, via SMS for phone identifiers
     if (isEmail) {
       try {
         await sendOtpEmail(identifier, otpCode);
       } catch (emailErr) {
         console.error('Resend email failed:', emailErr.message);
         // OTP code is NOT logged here for security
+      }
+    } else {
+      if (!isMsg91Configured()) {
+        return NextResponse.json({ error: 'SMS service is not configured. Please contact support.' }, { status: 500 });
+      }
+      try {
+        const smsResult = await sendOtpSms(identifier, otpCode);
+        if (!smsResult.success) {
+          return NextResponse.json({ error: 'Failed to send SMS OTP. Please try again.' }, { status: 500 });
+        }
+      } catch (smsErr) {
+        console.error('SMS send failed:', smsErr.message);
+        return NextResponse.json({ error: 'Failed to send SMS OTP. Please try again.' }, { status: 500 });
       }
     }
 

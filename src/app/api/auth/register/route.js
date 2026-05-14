@@ -4,6 +4,7 @@ import User from '@/models/User';
 import OTP from '@/models/OTP';
 import bcrypt from 'bcryptjs';
 import { sendOtpEmail } from '@/lib/mailer';
+import { sendOtpSms, isMsg91Configured } from '@/lib/msg91';
 import { successResponse, errorResponse } from '@/lib/apiResponse';
 import { checkRateLimit } from '@/lib/rateLimit';
 
@@ -46,7 +47,13 @@ export async function POST(request) {
     if (existingUser) {
       return errorResponse('Email or phone already registered', 409);
     }
-    
+
+    // For phone-only registration, verify MSG91 is configured before
+    // creating the User and OTP records to prevent ghost users.
+    if (!email && phone && !isMsg91Configured()) {
+      return errorResponse('SMS service is not configured. Please contact support.', 500);
+    }
+
     // Hash password
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
@@ -70,13 +77,26 @@ export async function POST(request) {
       expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes expiry
     });
     
-    // Send OTP via email
+    // Send OTP via email if email exists, otherwise via SMS if phone exists
     if (email) {
       try {
         await sendOtpEmail(email, otpCode);
       } catch (emailErr) {
         console.error('Email send failed:', emailErr.message);
         // OTP code is NOT logged here for security
+      }
+    } else if (phone) {
+      if (!isMsg91Configured()) {
+        return errorResponse('SMS service is not configured. Please contact support.', 500);
+      }
+      try {
+        const smsResult = await sendOtpSms(phone, otpCode);
+        if (!smsResult.success) {
+          return errorResponse('Failed to send SMS OTP. Please try again.', 500);
+        }
+      } catch (smsErr) {
+        console.error('SMS send failed:', smsErr.message);
+        return errorResponse('Failed to send SMS OTP. Please try again.', 500);
       }
     }
     
