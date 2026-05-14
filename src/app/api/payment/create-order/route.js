@@ -20,6 +20,7 @@ import connectToDatabase from '@/lib/mongodb';
 import Product from '@/models/Product';
 import { getUserFromRequest } from '@/lib/auth';
 import { checkRateLimit } from '@/lib/rateLimit';
+import { DELIVERY_FREE_THRESHOLD, DELIVERY_CHARGE } from '@/lib/constants';
 
 // ── Validate env at startup (fail loudly rather than silently) ──────────────
 const KEY_ID     = process.env.RAZORPAY_KEY_ID;
@@ -34,8 +35,6 @@ function getRazorpayInstance() {
   return new Razorpay({ key_id: KEY_ID, key_secret: KEY_SECRET });
 }
 
-// Delivery charge: free above ₹500 subtotal, otherwise ₹100
-const DELIVERY_CHARGE = 100;
 const MAX_QTY_PER_ITEM = 99;
 
 // Basic MongoDB ObjectId format check: 24 hex characters
@@ -116,9 +115,9 @@ export async function POST(request) {
       subtotal += product.price * item.quantity;
     }
 
-    // Delivery charge: free above ₹500 subtotal, otherwise ₹100
+    // Delivery charge: free above threshold, otherwise flat charge.
     // CHARGE IS NEVER READ FROM THE CLIENT — computed here.
-    const deliveryCharge = subtotal > 500 ? 0 : DELIVERY_CHARGE;
+    const deliveryCharge = subtotal > DELIVERY_FREE_THRESHOLD ? 0 : DELIVERY_CHARGE;
     const totalAmount    = subtotal + deliveryCharge; // in ₹
 
 

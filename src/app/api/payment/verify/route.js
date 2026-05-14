@@ -25,11 +25,10 @@ import Order from '@/models/Order';
 import Product from '@/models/Product';
 import { getUserFromRequest } from '@/lib/auth';
 import { checkRateLimit } from '@/lib/rateLimit';
+import { DELIVERY_FREE_THRESHOLD, DELIVERY_CHARGE } from '@/lib/constants';
 import { addressSchema } from '@/lib/validation';
 
 const KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
-
-const DELIVERY_CHARGE    = 100;
 
 
 export async function POST(request) {
@@ -155,7 +154,7 @@ export async function POST(request) {
       });
     }
 
-    const deliveryCharge = subtotal > 500 ? 0 : DELIVERY_CHARGE;
+    const deliveryCharge = subtotal > DELIVERY_FREE_THRESHOLD ? 0 : DELIVERY_CHARGE;
     const totalAmount    = subtotal + deliveryCharge;
 
 

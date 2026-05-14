@@ -6,6 +6,7 @@ import Script from 'next/script';
 import { useCart } from '@/context/CartContext';
 import { useAuth } from '@/context/AuthContext';
 import { formatPrice, ProductImage } from '@/components/ProductCard';
+import { DELIVERY_FREE_THRESHOLD, DELIVERY_CHARGE } from '@/lib/constants';
 
 const CheckCircleIcon = ({ size = 24, className = '', color = 'currentColor' }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
@@ -38,8 +39,6 @@ const BuildingIcon = ({ size = 24, className = '', color = 'currentColor' }) => 
 const LockIcon = ({ size = 24, className = '', color = 'currentColor' }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}><rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
 );
-
-const DELIVERY_CHARGE = 100; // ₹100 flat delivery charge
 
 export default function CheckoutPage() {
   const { cart, cartTotal, clearCart } = useCart();
@@ -105,7 +104,7 @@ export default function CheckoutPage() {
     }
   };
 
-  const deliveryCharge = cartTotal > 500 ? 0 : DELIVERY_CHARGE;
+  const deliveryCharge = cartTotal > DELIVERY_FREE_THRESHOLD ? 0 : DELIVERY_CHARGE;
   const totalAmount = cartTotal + deliveryCharge;
 
   const handlePlaceOrder = async (e) => {

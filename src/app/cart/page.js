@@ -2,6 +2,7 @@
 import Link from 'next/link';
 import { useCart } from '@/context/CartContext';
 import { ProductImage, formatPrice } from '@/components/ProductCard';
+import { DELIVERY_FREE_THRESHOLD, DELIVERY_CHARGE } from '@/lib/constants';
 
 export default function CartPage() {
   const { cart, removeFromCart, updateQuantity, cartTotal, cartCount, clearCart } = useCart();
@@ -21,8 +22,6 @@ export default function CartPage() {
     );
   }
 
-  const DELIVERY_FREE_THRESHOLD = 500;
-  const DELIVERY_CHARGE = 100;
   const deliveryCharge = cartTotal > DELIVERY_FREE_THRESHOLD ? 0 : DELIVERY_CHARGE;
   const totalAmount = cartTotal + deliveryCharge;
 
