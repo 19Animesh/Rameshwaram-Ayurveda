@@ -25,6 +25,7 @@ export default function CartPage() {
   const deliveryCharge = cartTotal > DELIVERY_FREE_THRESHOLD ? 0 : DELIVERY_CHARGE;
   const totalAmount = cartTotal + deliveryCharge;
 
+  const hasPrescriptionItem = cart.some(item => item.requiresPrescription === true);
 
   return (
     <>
@@ -87,9 +88,20 @@ export default function CartPage() {
               <span>Total</span>
               <span>{formatPrice(totalAmount)}</span>
             </div>
-            <Link href="/checkout" className="btn btn-primary btn-lg" style={{ width: '100%', marginTop: 'var(--space-md)' }}>
-              Proceed to Checkout →
-            </Link>
+            {hasPrescriptionItem ? (
+              <div style={{ marginTop: 'var(--space-md)' }}>
+                <button className="btn btn-lg" disabled style={{ width: '100%', opacity: 0.6, cursor: 'not-allowed' }}>
+                  Proceed to Checkout →
+                </button>
+                <p style={{ fontSize: 13, color: 'var(--orange-700)', marginTop: 8, textAlign: 'center', backgroundColor: '#fff3e0', padding: '10px 12px', borderRadius: 8 }}>
+                  ⚠️ Your cart contains items that require a prescription. Prescription upload and review must be implemented before checkout can proceed.
+                </p>
+              </div>
+            ) : (
+              <Link href="/checkout" className="btn btn-primary btn-lg" style={{ width: '100%', marginTop: 'var(--space-md)' }}>
+                Proceed to Checkout →
+              </Link>
+            )}
             <Link href="/products" className="btn btn-secondary" style={{ width: '100%', marginTop: 'var(--space-sm)' }}>
               Continue Shopping
             </Link>

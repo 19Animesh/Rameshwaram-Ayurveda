@@ -107,6 +107,8 @@ export default function CheckoutPage() {
   const deliveryCharge = cartTotal > DELIVERY_FREE_THRESHOLD ? 0 : DELIVERY_CHARGE;
   const totalAmount = cartTotal + deliveryCharge;
 
+  const hasPrescriptionItem = cart.some(item => item.requiresPrescription === true);
+
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
     if (!address.fullName || !address.phone || !address.street || !address.city || !address.state || !address.pincode) {
@@ -411,14 +413,30 @@ export default function CheckoutPage() {
                 <span>Total</span>
                 <span>{formatPrice(totalAmount)}</span>
               </div>
-              <button
-                type="submit"
-                className="btn btn-primary btn-lg"
-                style={{ width: '100%', marginTop: 'var(--space-md)' }}
-                disabled={loading}
-              >
-                {loading ? 'Placing Order...' : `Place Order — ${formatPrice(totalAmount)}`}
-              </button>
+              {hasPrescriptionItem ? (
+                <div style={{ marginTop: 'var(--space-md)' }}>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-lg"
+                    style={{ width: '100%', opacity: 0.6, cursor: 'not-allowed' }}
+                    disabled
+                  >
+                    Place Order — {formatPrice(totalAmount)}
+                  </button>
+                  <p style={{ fontSize: 13, color: 'var(--orange-700)', marginTop: 8, textAlign: 'center', backgroundColor: '#fff3e0', padding: '10px 12px', borderRadius: 8 }}>
+                    ⚠️ Your cart contains items that require a prescription. Prescription upload and review are not yet available. Please remove prescription items to continue.
+                  </p>
+                </div>
+              ) : (
+                <button
+                  type="submit"
+                  className="btn btn-primary btn-lg"
+                  style={{ width: '100%', marginTop: 'var(--space-md)' }}
+                  disabled={loading}
+                >
+                  {loading ? 'Placing Order...' : `Place Order — ${formatPrice(totalAmount)}`}
+                </button>
+              )}
               <p style={{ fontSize: 12, color: 'var(--gray-400)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4, marginTop: 'var(--space-sm)' }}>
                 <LockIcon size={14} /> Your payment is secure and encrypted
               </p>

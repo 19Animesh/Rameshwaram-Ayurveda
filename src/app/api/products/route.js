@@ -217,6 +217,7 @@ export async function POST(request) {
       usage: data.usage || '',
       sideEffects: data.sideEffects || '',
       featured: data.featured || false,
+      requiresPrescription: Boolean(data.requiresPrescription),
       imageUrl,
       imagePublicId,
       variants: []

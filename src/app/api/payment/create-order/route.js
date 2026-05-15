@@ -91,7 +91,7 @@ export async function POST(request) {
     await connectToDatabase();
 
     const productIds = items.map(i => i.productId);
-    const products   = await Product.find({ _id: { $in: productIds } }).select('_id name price stock').lean();
+    const products   = await Product.find({ _id: { $in: productIds } }).select('_id name price stock requiresPrescription').lean();
 
     if (products.length !== productIds.length) {
       const foundIds = new Set(products.map(p => p._id.toString()));
@@ -99,9 +99,23 @@ export async function POST(request) {
       return NextResponse.json({ error: `Products not found: ${missing.join(', ')}` }, { status: 400 });
     }
 
-    // ── 5. Stock check + server-side total calculation ─────────────────────
-    // PRICE IS NEVER READ FROM THE CLIENT — only from MongoDB below.
+    // ── 5. Prescription check ─────────────────────────────────────────────
+    // If any product requires a prescription, block order creation.
+    // Prescription upload/review must be implemented before this gate can be lifted.
     const productMap = Object.fromEntries(products.map(p => [p._id.toString(), p]));
+
+    for (const item of items) {
+      const product = productMap[item.productId];
+      if (product.requiresPrescription) {
+        return NextResponse.json(
+          { error: `"${product.name}" requires a prescription. Prescription upload is not yet available.` },
+          { status: 400 }
+        );
+      }
+    }
+
+    // ── 6. Stock check + server-side total calculation ─────────────────────
+    // PRICE IS NEVER READ FROM THE CLIENT — only from MongoDB below.
     let subtotal = 0;
 
     for (const item of items) {
@@ -121,7 +135,7 @@ export async function POST(request) {
     const totalAmount    = subtotal + deliveryCharge; // in ₹
 
 
-    // ── 6. Create Razorpay order using the server-computed total only ──────
+    // ── 7. Create Razorpay order using the server-computed total only ──────
     const receipt = `rcpt_${crypto.randomBytes(8).toString('hex')}`;
 
     const razorpay = getRazorpayInstance();
@@ -131,7 +145,7 @@ export async function POST(request) {
       receipt,
     });
 
-    // ── 7. Respond — only public fields (key_id not secret) ───────────────
+    // ── 8. Respond — only public fields (key_id not secret) ───────────────
     return NextResponse.json({
       success:      true,
       razorpayOrderId: rzpOrder.id,

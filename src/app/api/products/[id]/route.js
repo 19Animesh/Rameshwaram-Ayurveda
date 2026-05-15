@@ -57,7 +57,7 @@ export async function PUT(request, { params }) {
       'name', 'brandId', 'brandName', 'category', 'description',
       'rating', 'reviewCount', 'originalPrice', 'price', 'stock',
       'expiryDate', 'dosage', 'usage', 'sideEffects',
-      'imageUrl', 'imagePublicId', 'featured'
+      'imageUrl', 'imagePublicId', 'featured', 'requiresPrescription'
     ];
     const safeUpdates = {};
     for (const key of allowed) {

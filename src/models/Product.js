@@ -25,6 +25,7 @@ const productSchema = new mongoose.Schema({
   rating: { type: Number, default: 0 },
   reviewCount: { type: Number, default: 0 },
   featured: { type: Boolean, default: false },
+  requiresPrescription: { type: Boolean, default: false },
   variants: [productVariantSchema]
 }, { timestamps: true });
 
