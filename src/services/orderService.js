@@ -22,34 +22,7 @@ export async function getOrders(userId = null) {
   });
 }
 
+/** @deprecated Use `/api/orders` route which performs server-side payment verification. */
 export async function placeOrder({ userId, items, address, paymentMethod, paymentId, totalAmount, status = 'confirmed' }) {
-  await connectToDatabase();
-  
-  // Create Order in Mongoose
-  // 1. Decrement stock for all items
-  for (const item of items) {
-    await Product.updateOne(
-      { _id: item.productId, stock: { $gte: item.quantity } },
-      { $inc: { stock: -item.quantity } }
-    );
-  }
-
-  // 2. Create the order
-  const order = await Order.create([{
-    userId,
-    status,
-    totalAmount,
-    paymentMethod,
-    shippingAddr: JSON.stringify(address || {}),
-    items: items.map(item => ({
-      productId: item.productId,
-      name: item.name,
-      price: item.price,
-      quantity: item.quantity,
-      variantId: item.variantId || null,
-    })),
-  }]);
-
-  const rawOrder = order[0].toObject();
-  return { ...rawOrder, id: rawOrder._id.toString() };
+  throw new Error('placeOrder service function is deprecated. Orders must be created securely via the API route with payment verification.');
 }

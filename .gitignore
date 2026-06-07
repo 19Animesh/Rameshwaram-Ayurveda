@@ -36,6 +36,11 @@ catalog.xlsx.xlsx
 Thumbs.db
 
 # Editor files
-.vscode/
 *.swp
 *.swo
+
+# AI / Agent directories
+.agents/
+scratch/
+.gemini/
+

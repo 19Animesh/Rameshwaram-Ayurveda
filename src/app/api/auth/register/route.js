@@ -1,16 +1,16 @@
-import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import User from '@/models/User';
-import OTP from '@/models/OTP';
 import bcrypt from 'bcryptjs';
-import { sendOtpEmail } from '@/lib/mailer';
-import { sendOtpSms, isMsg91Configured } from '@/lib/msg91';
+import { getFirebaseAdmin } from '@/lib/firebaseAdmin';
+import { signToken } from '@/lib/auth';
 import { successResponse, errorResponse } from '@/lib/apiResponse';
 import { checkRateLimit } from '@/lib/rateLimit';
 
-// Helper to generate a 6-digit OTP
-function generateOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
+function phoneNumbersMatch(inputPhone, firebasePhone) {
+  if (!inputPhone || !firebasePhone) return false;
+  const inputDigits = inputPhone.replace(/\D/g, '');
+  const firebaseDigits = firebasePhone.replace(/\D/g, '');
+  return firebaseDigits.endsWith(inputDigits) || inputDigits.endsWith(firebaseDigits);
 }
 
 export async function POST(request) {
@@ -21,16 +21,32 @@ export async function POST(request) {
       return errorResponse('Too many registration attempts. Please try again later.', 429);
     }
 
-    const { name, email, password, phone } = await request.json();
+    const { name, email, password, phone, firebaseToken } = await request.json();
     
-    if (!name || (!email && !phone) || !password) {
-      return errorResponse('Name, password, and either email or phone are required', 400);
+    if (!name || !phone || !password || !firebaseToken) {
+      return errorResponse('Name, phone, password, and firebaseToken are required', 400);
     }
 
-    // Rate limit by identifier: 3 registration attempts per minute per email/phone
-    const identifier = email || phone;
+    // Rate limit by identifier: 3 registration attempts per minute per phone
+    const identifier = phone;
     if (!(await checkRateLimit(identifier, 3, 60000, 'register-id'))) {
-      return errorResponse('Too many registration attempts for this email or phone. Please try again later.', 429);
+      return errorResponse('Too many registration attempts for this phone number. Please try again later.', 429);
+    }
+
+    // Verify the Firebase Token server-side
+    let firebasePhone = '';
+    try {
+      const adminSDK = getFirebaseAdmin();
+      const decodedToken = await adminSDK.auth().verifyIdToken(firebaseToken);
+      firebasePhone = decodedToken.phone_number;
+    } catch (tokenErr) {
+      console.error('Firebase token verification failed:', tokenErr.message);
+      return errorResponse('Invalid or expired phone verification token', 401);
+    }
+
+    // Ensure token phone matches the registration phone
+    if (!phoneNumbersMatch(phone, firebasePhone)) {
+      return errorResponse('Verified phone number does not match the provided phone number', 400);
     }
 
     // Check if user already exists
@@ -38,7 +54,7 @@ export async function POST(request) {
     
     const query = [];
     if (email) query.push({ email });
-    if (phone) query.push({ phone });
+    query.push({ phone });
     
     const existingUser = await User.findOne({
       $or: query
@@ -48,64 +64,39 @@ export async function POST(request) {
       return errorResponse('Email or phone already registered', 409);
     }
 
-    // For phone-only registration, verify MSG91 is configured before
-    // creating the User and OTP records to prevent ghost users.
-    if (!email && phone && !isMsg91Configured()) {
-      return errorResponse('SMS service is not configured. Please contact support.', 500);
-    }
-
     // Hash password
     const saltRounds = 10;
     const passwordHash = await bcrypt.hash(password, saltRounds);
     
-    // Create unverified user
+    // Create verified user directly
     const newUser = await User.create({
       name,
       ...(email ? { email } : {}),
-      ...(phone ? { phone } : {}),
+      phone,
       passwordHash,
-      isPhoneVerified: false
+      isPhoneVerified: true // Already verified via Firebase on client
     });
     
-    // Generate and save OTP
-    const otpCode = generateOTP();
-    const otpHash = await bcrypt.hash(otpCode, 10);
+    // Generate JWT Session Token
+    const token = signToken({ userId: newUser._id.toString(), email: newUser.email, phone: newUser.phone, role: newUser.role });
+    const { passwordHash: _, ...safeUser } = newUser.toObject();
+    safeUser.id = newUser._id.toString();
     
-    await OTP.create({
-      emailOrPhone: identifier,
-      code: otpHash,
-      expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 minutes expiry
-    });
-    
-    // Send OTP via email if email exists, otherwise via SMS if phone exists
-    if (email) {
-      try {
-        await sendOtpEmail(email, otpCode);
-      } catch (emailErr) {
-        console.error('Email send failed:', emailErr.message);
-        // OTP code is NOT logged here for security
-      }
-    } else if (phone) {
-      if (!isMsg91Configured()) {
-        return errorResponse('SMS service is not configured. Please contact support.', 500);
-      }
-      try {
-        const smsResult = await sendOtpSms(phone, otpCode);
-        if (!smsResult.success) {
-          return errorResponse('Failed to send SMS OTP. Please try again.', 500);
-        }
-      } catch (smsErr) {
-        console.error('SMS send failed:', smsErr.message);
-        return errorResponse('Failed to send SMS OTP. Please try again.', 500);
-      }
-    }
-    
-    return successResponse({ 
-      message: 'Registration successful. OTP sent.',
-      requireVerification: true,
-      identifier 
+    const response = successResponse({ 
+      message: 'Registration successful',
+      user: safeUser,
+      token 
     }, 201);
+
+    response.cookies.set('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 7 * 24 * 60 * 60, // 7 days
+      path: '/'
+    });
     
+    return response;
   } catch (error) {
     console.error('Registration Error:', error);
     return errorResponse('Registration failed');

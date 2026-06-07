@@ -33,40 +33,53 @@ export function CartProvider({ children }) {
   }, [wishlist, isInitialized]);
 
   const addToCart = (product, quantity = 1) => {
-    const maxStock = product.stock ?? Infinity; // Respect stock limit
+    const productId = product.id || product._id?.toString();
+    if (!productId) return;
+
+    const normalizedProduct = {
+      ...product,
+      id: productId,
+    };
+    if (normalizedProduct._id) {
+      delete normalizedProduct._id;
+    }
+
+    const maxStock = normalizedProduct.stock ?? Infinity;
     setCart(prev => {
-      const existing = prev.find(item => item.id === product.id);
+      const existing = prev.find(item => item.id === productId);
       if (existing) {
         const newQty = existing.quantity + quantity;
         if (newQty > maxStock) {
           alert(`Only ${maxStock} units available in stock.`);
           return prev.map(item =>
-            item.id === product.id ? { ...item, quantity: maxStock } : item
+            item.id === productId ? { ...item, quantity: maxStock } : item
           );
         }
         return prev.map(item =>
-          item.id === product.id
+          item.id === productId
             ? { ...item, quantity: newQty }
             : item
         );
       }
       const clampedQty = Math.min(quantity, maxStock);
-      return [...prev, { ...product, quantity: clampedQty }];
+      return [...prev, { ...normalizedProduct, quantity: clampedQty }];
     });
   };
 
   const removeFromCart = (productId) => {
-    setCart(prev => prev.filter(item => item.id !== productId));
+    const id = productId?.toString();
+    setCart(prev => prev.filter(item => (item.id || item._id?.toString()) !== id));
   };
 
   const updateQuantity = (productId, quantity) => {
+    const id = productId?.toString();
     if (quantity <= 0) {
       removeFromCart(productId);
       return;
     }
     setCart(prev =>
       prev.map(item =>
-        item.id === productId ? { ...item, quantity } : item
+        (item.id || item._id?.toString()) === id ? { ...item, quantity } : item
       )
     );
   };
@@ -77,18 +90,37 @@ export function CartProvider({ children }) {
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
 
   const addToWishlist = (product) => {
+    const productId = product.id || product._id?.toString();
+    if (!productId) return;
+    
+    const normalizedProduct = {
+      ...product,
+      id: productId,
+    };
+    if (normalizedProduct._id) {
+      delete normalizedProduct._id;
+    }
+
     setWishlist(prev => {
-      if (prev.find(item => item.id === product.id)) return prev;
-      return [...prev, product];
+      if (prev.find(item => item.id === productId)) return prev;
+      return [...prev, normalizedProduct];
     });
   };
 
   const removeFromWishlist = (productId) => {
-    setWishlist(prev => prev.filter(item => item.id !== productId));
+    const id = productId?.toString();
+    setWishlist(prev => prev.filter(item => (item.id || item._id?.toString()) !== id));
   };
 
-  const isInWishlist = (productId) => wishlist.some(item => item.id === productId);
-  const isInCart = (productId) => cart.some(item => item.id === productId);
+  const isInWishlist = (productId) => {
+    const id = productId?.toString();
+    return wishlist.some(item => (item.id || item._id?.toString()) === id);
+  };
+
+  const isInCart = (productId) => {
+    const id = productId?.toString();
+    return cart.some(item => (item.id || item._id?.toString()) === id);
+  };
 
   return (
     <CartContext.Provider value={{

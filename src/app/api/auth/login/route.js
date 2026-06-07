@@ -1,17 +1,9 @@
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { getUserByEmailOrPhone } from '@/services/userService';
-import { sendOtpEmail } from '@/lib/mailer';
 import { signToken } from '@/lib/auth';
 import { successResponse, errorResponse } from '@/lib/apiResponse';
-
 import { checkRateLimit } from '@/lib/rateLimit';
-import OTP from '@/models/OTP';
-import connectToDatabase from '@/lib/mongodb';
-
-function generateOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
 
 const loginSchema = z.object({
   identifier: z.string().optional(),
@@ -40,7 +32,6 @@ export async function POST(request) {
       return errorResponse('Email or Phone is required', 400);
     }
 
-    const isEmail = loginId.includes('@');
     const user = await getUserByEmailOrPhone(loginId);
 
     if (!user) {
@@ -60,7 +51,7 @@ export async function POST(request) {
       
       const response = successResponse({ user: safeUser, token });
       response.cookies.set('token', token, {
-        httpOnly: true, // Prevents XSS script access to Token
+        httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
         maxAge: 7 * 24 * 60 * 60, // 7 days session
@@ -72,28 +63,12 @@ export async function POST(request) {
     const isVerified = user.isPhoneVerified;
 
     if (!isVerified) {
-      const otpCode = generateOTP();
-      const otpHash = await bcrypt.hash(otpCode, 10);
-
-      await connectToDatabase();
-      await OTP.create({
-        emailOrPhone: loginId,
-        code: otpHash,
-        expiresAt: new Date(Date.now() + 10 * 60 * 1000),
-      });
-
-      if (isEmail) {
-        try {
-          await sendOtpEmail(loginId, otpCode);
-        } catch (e) {
-          console.warn('Login OTP email failed', e);
-        }
-      }
-
+      // Return flag to let client-side trigger Firebase phone OTP verification
       return successResponse({
-        message: 'Account not verified. OTP sent.',
+        message: 'Account not verified. Verification required.',
         requireVerification: true,
         identifier: loginId,
+        phone: user.phone,
       }, 200);
     }
 

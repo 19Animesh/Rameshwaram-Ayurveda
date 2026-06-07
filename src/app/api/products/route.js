@@ -133,8 +133,6 @@ export async function GET(request) {
       fetchAll: searchParams.get('all') === 'true',
     });
 
-    console.log("✅ Products fetched:", productsResult?.products?.length || 0);
-
     return successResponse(productsResult);
 
   } catch (error) {

@@ -6,21 +6,27 @@ export async function checkRateLimit(ip, limit = 50, windowMs = 60000, action = 
     await connectToDatabase();
     const now = new Date();
     
-    // Find or create the rate limit record for this IP and action
-    const record = await RateLimit.findOneAndUpdate(
-      { ip, action },
-      {
-        $setOnInsert: { resetTime: new Date(now.getTime() + windowMs) },
-        $inc: { count: 1 }
-      },
-      { upsert: true, new: true, setDefaultsOnInsert: true }
-    );
-
-    // If the reset time has passed, reset the counter (failsafe if TTL lags)
-    if (now > record.resetTime) {
-      record.count = 1;
-      record.resetTime = new Date(now.getTime() + windowMs);
-      await record.save();
+    let record = await RateLimit.findOne({ ip, action });
+    
+    if (!record || now > record.resetTime) {
+      // Reset window or create new record
+      record = await RateLimit.findOneAndUpdate(
+        { ip, action },
+        {
+          $set: {
+            count: 1,
+            resetTime: new Date(now.getTime() + windowMs)
+          }
+        },
+        { upsert: true, new: true }
+      );
+    } else {
+      // Within window, increment count
+      record = await RateLimit.findOneAndUpdate(
+        { ip, action },
+        { $inc: { count: 1 } },
+        { new: true }
+      );
     }
 
     return record.count <= limit;

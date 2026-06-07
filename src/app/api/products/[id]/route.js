@@ -20,10 +20,6 @@ export async function GET(request, { params }) {
     const { _id, ...rest } = productRaw;
     const product = { ...rest, id: _id.toString() };
     
-    if (!product) {
-      return errorResponse('Product not found', 404);
-    }
-    
     return successResponse({ product });
   } catch (error) {
     console.error('Fetch Product Error:', error);

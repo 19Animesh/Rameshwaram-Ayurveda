@@ -8,6 +8,13 @@ const orderItemSchema = new mongoose.Schema({
   quantity:  { type: Number, required: true },
 });
 
+const statusHistoryEntrySchema = new mongoose.Schema({
+  previousStatus: { type: String },
+  newStatus:      { type: String, required: true },
+  changedAt:      { type: Date, default: Date.now },
+  changedBy:      { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+}, { _id: false });
+
 const orderSchema = new mongoose.Schema({
   userId:          { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   status:          { type: String, default: 'confirmed' },
@@ -28,6 +35,7 @@ const orderSchema = new mongoose.Schema({
     pincode: { type: String },
   },
   items:        [orderItemSchema],
+  statusHistory: [statusHistoryEntrySchema],
 }, { timestamps: true });
 
 export default mongoose.models.Order || mongoose.model('Order', orderSchema);

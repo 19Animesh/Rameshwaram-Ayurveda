@@ -1,11 +1,16 @@
-import { NextResponse } from 'next/server';
 import connectToDatabase from '@/lib/mongodb';
 import User from '@/models/User';
-import OTP from '@/models/OTP';
+import { getFirebaseAdmin } from '@/lib/firebaseAdmin';
 import { signToken } from '@/lib/auth';
-import bcrypt from 'bcryptjs';
 import { successResponse, errorResponse } from '@/lib/apiResponse';
 import { checkRateLimit } from '@/lib/rateLimit';
+
+function phoneNumbersMatch(inputPhone, firebasePhone) {
+  if (!inputPhone || !firebasePhone) return false;
+  const inputDigits = inputPhone.replace(/\D/g, '');
+  const firebaseDigits = firebasePhone.replace(/\D/g, '');
+  return firebaseDigits.endsWith(inputDigits) || inputDigits.endsWith(firebaseDigits);
+}
 
 export async function POST(request) {
   try {
@@ -15,10 +20,10 @@ export async function POST(request) {
       return errorResponse('Too many verification attempts. Please try again later.', 429);
     }
 
-    const { identifier, otp } = await request.json();
+    const { identifier, firebaseToken } = await request.json();
 
-    if (!identifier || !otp) {
-      return errorResponse('Identifier (email/phone) and OTP are required', 400);
+    if (!identifier || !firebaseToken) {
+      return errorResponse('Identifier (email/phone) and firebaseToken are required', 400);
     }
 
     // Rate limit by identifier: 5 verify attempts per minute per email/phone
@@ -26,36 +31,26 @@ export async function POST(request) {
       return errorResponse('Too many verification attempts for this account. Please try again later.', 429);
     }
 
+    // Verify the Firebase Token server-side
+    let firebasePhone = '';
+    try {
+      const adminSDK = getFirebaseAdmin();
+      const decodedToken = await adminSDK.auth().verifyIdToken(firebaseToken);
+      firebasePhone = decodedToken.phone_number;
+    } catch (tokenErr) {
+      console.error('Firebase token verification failed:', tokenErr.message);
+      return errorResponse('Invalid or expired verification token', 401);
+    }
+
+    // Ensure the token's phone matches the user's phone identifier
+    const isEmail = identifier.includes('@');
+    if (!isEmail && !phoneNumbersMatch(identifier, firebasePhone)) {
+      return errorResponse('Verified phone number does not match the provided phone number', 400);
+    }
+
     await connectToDatabase();
     
-    // 1. Find a valid, unused, non-expired OTP
-    const validOtp = await OTP.findOne({
-      emailOrPhone: identifier,
-      used: false,
-      expiresAt: { $gt: new Date() },
-    }).sort({ createdAt: -1 });
-
-    if (!validOtp) {
-      return errorResponse('Invalid or expired OTP. Please request a new one.', 400);
-    }
-
-    // 2. Verify OTP code and track failed attempts
-    const isMatch = await bcrypt.compare(otp, validOtp.code);
-    if (!isMatch) {
-      const updated = await OTP.findByIdAndUpdate(
-        validOtp._id,
-        { $inc: { attempts: 1 } },
-        { new: true }
-      );
-      // Invalidate OTP after 5 failed attempts to prevent brute force
-      if (updated.attempts >= 5) {
-        await OTP.findByIdAndUpdate(validOtp._id, { used: true });
-      }
-      return errorResponse('Invalid or expired OTP. Please request a new one.', 400);
-    }
-
-    // 3. Find the user
-    const isEmail = identifier.includes('@');
+    // Find the user
     const existingUser = await User.findOne(
       isEmail ? { email: identifier } : { phone: identifier }
     );
@@ -64,20 +59,16 @@ export async function POST(request) {
       return errorResponse('User not found', 404);
     }
 
-    const updateData = { isPhoneVerified: true };
-
-    // 3. Sequential update
-    await OTP.findByIdAndUpdate(validOtp._id, { used: true });
+    // Mark verified
+    const userRaw = await User.findByIdAndUpdate(
+      existingUser._id, 
+      { isPhoneVerified: true }, 
+      { new: true }
+    ).lean();
     
-    const userRaw = await User.findByIdAndUpdate(existingUser._id, updateData, { new: true }).lean();
     const user = { ...userRaw, id: userRaw._id.toString() };
 
-    // 4. Clean up expired OTPs for this identifier (housekeeping)
-    await OTP.deleteMany({
-      emailOrPhone: identifier, expiresAt: { $lt: new Date() }
-    }).catch(() => {});
-
-    // 5. Generate JWT Token using centralized helper
+    // Generate JWT Session Token
     const token = signToken({ userId: user.id, email: user.email, phone: user.phone, role: user.role });
 
     const { passwordHash: _, ...safeUser } = user;
@@ -87,7 +78,7 @@ export async function POST(request) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 7 * 24 * 60 * 60,
+      maxAge: 7 * 24 * 60 * 60, // 7 days
       path: '/'
     });
     return response;

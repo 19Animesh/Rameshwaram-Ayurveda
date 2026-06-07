@@ -13,12 +13,10 @@ const EMPTY_PRODUCT = {
   sideEffects: '', expiryDate: '', imageUrl: '', featured: false,
 };
 
-// Helper: get auth headers with Bearer token
+// Helper: get standard request headers
 function authHeaders(extra = {}) {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('ayurvedic_token') : '';
   return {
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...extra,
   };
 }
@@ -54,8 +52,16 @@ export default function AdminPage() {
     setTimeout(() => setSelectedOrder(null), 300);
   };
 
+  const hasLoadedData = useRef(false);
+
   useEffect(() => { loadData(); }, []);
-  useEffect(() => { loadProducts(productPage, searchTerm); }, [productPage]);
+  useEffect(() => {
+    if (!hasLoadedData.current) {
+      hasLoadedData.current = true;
+      return;
+    }
+    loadProducts(productPage, searchTerm);
+  }, [productPage]);
 
 
   const showToast = (msg) => {
@@ -105,8 +111,11 @@ export default function AdminPage() {
   // Debounced search handler
   const handleSearch = (val) => {
     setSearchTerm(val);
-    setProductPage(1);
-    loadProducts(1, val);
+    if (productPage === 1) {
+      loadProducts(1, val);
+    } else {
+      setProductPage(1);
+    }
   };
 
 
@@ -216,11 +225,17 @@ export default function AdminPage() {
   const handleDelete = async (id) => {
     if (!confirm('Delete this product? This cannot be undone.')) return;
     try {
-      await fetch(`/api/products/${id}`, { method: 'DELETE', headers: authHeaders() });
+      const res = await fetch(`/api/products/${id}`, { method: 'DELETE', headers: authHeaders() });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
       showToast('🗑️ Product deleted');
       loadProducts(productPage, searchTerm);
-
-    } catch { showToast('❌ Failed to delete'); }
+    } catch (err) {
+      console.error(err);
+      showToast(`❌ Failed to delete: ${err.message}`);
+    }
   };
 
   // ── Open edit modal ──
@@ -249,28 +264,42 @@ export default function AdminPage() {
   const saveInlineStock = async (productId) => {
     setSavingStock(productId);
     try {
-      await fetch(`/api/products/${productId}`, {
+      const res = await fetch(`/api/products/${productId}`, {
         method: 'PUT',
         headers: authHeaders(),
         body: JSON.stringify({ stock: Number(inlineStock[productId]) }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
       showToast('✅ Stock updated');
       setProducts(prev => prev.map(p => p.id === productId ? { ...p, stock: Number(inlineStock[productId]) } : p));
-    } catch { showToast('❌ Failed to update stock'); }
+    } catch (err) {
+      console.error(err);
+      showToast(`❌ Failed to update stock: ${err.message}`);
+    }
     setSavingStock(null);
   };
 
   // ── Update order status ──
   const handleOrderStatus = async (orderId, newStatus) => {
     try {
-      await fetch(`/api/orders/${orderId}`, {
+      const res = await fetch(`/api/orders/${orderId}`, {
         method: 'PUT',
         headers: authHeaders(),
         body: JSON.stringify({ status: newStatus }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `HTTP ${res.status}`);
+      }
       showToast('✅ Order status updated');
       loadData();
-    } catch { showToast('❌ Failed to update order'); }
+    } catch (err) {
+      console.error(err);
+      showToast(`❌ Failed to update order: ${err.message}`);
+    }
   };
 
   // Products are already filtered server-side via search

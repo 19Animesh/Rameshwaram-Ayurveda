@@ -218,6 +218,7 @@ export default function CheckoutPage() {
       setFinalOrderState({
         items:    [...cart],
         subtotal: cartTotal,
+        deliveryCharge: deliveryCharge,
         total:    serverTotal,
       });
       setOrderPlaced(true);
@@ -268,7 +269,7 @@ export default function CheckoutPage() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 14 }}>
                 <span style={{ color: 'var(--gray-500)' }}>Delivery Charge</span>
-                <span>{formatPrice(finalOrderState.total - finalOrderState.subtotal)}</span>
+                <span>{formatPrice(finalOrderState.deliveryCharge)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 18, fontWeight: 800, color: '#1B4332', marginTop: 4, paddingTop: 8, borderTop: '1px solid #e2f0e8' }}>
                 <span>Total Paid</span>
@@ -290,7 +291,7 @@ export default function CheckoutPage() {
     );
   }
 
-  if (cart.length === 0) {
+  if (cart.length === 0 && !orderPlaced) {
     return (
       <div className="container">
         <div className="empty-state" style={{ marginTop: '60px' }}>

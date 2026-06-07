@@ -2,6 +2,10 @@ import connectToDatabase from '@/lib/mongodb';
 import Product from '@/models/Product';
 
 
+function escapeRegex(string) {
+  return string.replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&');
+}
+
 export async function getProducts({ page = 1, limit = 12, search, category, brand, minPrice, maxPrice, sort, featured, fetchAll = false } = {}) {
   await connectToDatabase();
   
@@ -9,16 +13,17 @@ export async function getProducts({ page = 1, limit = 12, search, category, bran
   
   if (featured === true) where.featured = true;
   if (category) {
-    const searchCat = category.replace(/-/g, '.*');
-    where.category = { $regex: new RegExp(`^${searchCat}$`, 'i') };
+    const escapedCat = escapeRegex(category).replace(/\\-/g, '[- ]');
+    where.category = { $regex: new RegExp(`^${escapedCat}$`, 'i') };
   }
-  if (brand) where.brandName = { $regex: new RegExp(`^${brand}$`, 'i') };
+  if (brand) where.brandName = { $regex: new RegExp(`^${escapeRegex(brand)}$`, 'i') };
   
   if (search) {
+    const escapedSearch = escapeRegex(search);
     where.$or = [
-      { name: { $regex: search, $options: 'i' } },
-      { brandName: { $regex: search, $options: 'i' } },
-      { description: { $regex: search, $options: 'i' } },
+      { name: { $regex: escapedSearch, $options: 'i' } },
+      { brandName: { $regex: escapedSearch, $options: 'i' } },
+      { description: { $regex: escapedSearch, $options: 'i' } },
     ];
   }
   
@@ -47,8 +52,6 @@ export async function getProducts({ page = 1, limit = 12, search, category, bran
   const queryLimit = fetchAll ? 10000 : limit;
 
   try {
-    console.log('productService.getProducts query:', { page, limit: queryLimit, search, category, brand, featured, fetchAll });
-    
     const skipAmount = (page - 1) * queryLimit;
     
     const [total, products] = await Promise.all([
@@ -65,8 +68,6 @@ export async function getProducts({ page = 1, limit = 12, search, category, bran
       const { _id, ...rest } = p;
       return { ...rest, id: _id.toString() };
     });
-
-    console.log('productService.getProducts result:', { total, returned: mappedProducts.length });
 
     return {
       products: mappedProducts,

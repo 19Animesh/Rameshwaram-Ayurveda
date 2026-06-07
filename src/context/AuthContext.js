@@ -44,27 +44,25 @@ export function AuthProvider({ children }) {
     return payload;
   };
 
-  const register = async (name, email, password, phone) => {
+  const register = async (name, email, password, phone, firebaseToken) => {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password, phone }),
+      body: JSON.stringify({ name, email, password, phone, firebaseToken }),
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Registration failed');
     
     const payload = json.data || json;
-    if (payload.requireVerification) return payload;
-
     setUser(payload.user);
     return payload;
   };
 
-  const verifyOtp = async (identifier, otp) => {
+  const verifyOtp = async (identifier, firebaseToken) => {
     const res = await fetch('/api/auth/verify-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ identifier, otp }),
+      body: JSON.stringify({ identifier, firebaseToken }),
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Verification failed');
@@ -80,8 +78,11 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
-    // Optionally call a logout API if you want to clear cookie server-side
-    // For now, setting cookie to expire
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (error) {
+      console.error('Logout API failed:', error);
+    }
     document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
     setUser(null);
   };

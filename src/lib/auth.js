@@ -45,7 +45,7 @@ export function getUserFromRequest(request) {
   if (!user) {
     console.warn('[auth] getUserFromRequest: Token verification failed (expired or invalid secret)');
   } else {
-    console.info('[auth] getUserFromRequest: Decoded user =', { id: user.id, role: user.role, email: user.email });
+    console.info('[auth] getUserFromRequest: Decoded user =', { id: user.id, role: user.role });
   }
   return user;
 }

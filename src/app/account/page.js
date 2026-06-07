@@ -88,8 +88,7 @@ export default function AccountPage() {
   useEffect(() => {
     const userId = user?.id || user?._id;
     if (userId && activeTab === 'addresses' && addresses === null) {
-      const token = localStorage.getItem('ayurvedic_token');
-      fetch('/api/auth/profile', { headers: { Authorization: `Bearer ${token}` } })
+      fetch('/api/auth/profile')
         .then(r => r.json())
         .then(res => {
            const payload = res.data || res;

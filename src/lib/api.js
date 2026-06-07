@@ -4,16 +4,9 @@
  * Import these in page components instead of writing raw fetch calls.
  */
 
-function getToken() {
-  if (typeof window === 'undefined') return null;
-  return localStorage.getItem('ayurvedic_token');
-}
-
 function authHeaders(extra = {}) {
-  const token = getToken();
   return {
     'Content-Type': 'application/json',
-    ...(token ? { Authorization: `Bearer ${token}` } : {}),
     ...extra,
   };
 }

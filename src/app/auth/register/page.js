@@ -2,6 +2,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
+import { auth } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
 
 export default function RegisterPage() {
@@ -14,7 +16,9 @@ export default function RegisterPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [resendCooldown, setResendCooldown] = useState(0);
-  const { register, verifyOtp } = useAuth();
+  const [confirmationResult, setConfirmationResult] = useState(null);
+  const [formattedPhone, setFormattedPhone] = useState('');
+  const { register } = useAuth();
   const router = useRouter();
 
   // Countdown timer for resend
@@ -24,26 +28,73 @@ export default function RegisterPage() {
     return () => clearTimeout(timer);
   }, [resendCooldown]);
 
+  const setupRecaptcha = () => {
+    if (!window.recaptchaVerifier && auth) {
+      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+        size: 'invisible',
+        callback: () => {
+          // reCAPTCHA solved
+        },
+        'expired-callback': () => {
+          // reCAPTCHA expired, clear it
+          if (window.recaptchaVerifier) {
+            window.recaptchaVerifier.clear();
+            window.recaptchaVerifier = null;
+          }
+        }
+      });
+    }
+  };
+
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    
     if (password.length < 6) {
       setError('Password must be at least 6 characters');
       return;
     }
+
+    if (!auth) {
+      setError('Phone authentication is currently unavailable. Please verify configuration keys.');
+      return;
+    }
+
     setLoading(true);
     try {
-      const res = await register(name, email, password, phone);
-      if (res && res.requireVerification) {
-        setOtpMode(true);
-        setResendCooldown(30);
-      } else {
-        const urlParams = new URLSearchParams(window.location.search);
-        const redirectUrl = urlParams.get('redirect') || '/';
-        router.push(redirectUrl);
+      setupRecaptcha();
+      const appVerifier = window.recaptchaVerifier;
+
+      // Format phone number to international E.164 format (e.g. +91XXXXXXXXXX)
+      let phoneInput = phone.trim();
+      let targetPhone = phoneInput;
+      if (!phoneInput.startsWith('+')) {
+        const digits = phoneInput.replace(/\D/g, '');
+        if (digits.length === 10) {
+          targetPhone = `+91${digits}`;
+        } else if (digits.startsWith('91') && digits.length === 12) {
+          targetPhone = `+${digits}`;
+        } else {
+          throw new Error('Please enter a valid 10-digit mobile number.');
+        }
       }
+
+      setFormattedPhone(targetPhone);
+
+      // Trigger Firebase Phone SMS
+      const confirmation = await signInWithPhoneNumber(auth, targetPhone, appVerifier);
+      setConfirmationResult(confirmation);
+      setOtpMode(true);
+      setResendCooldown(60);
     } catch (err) {
-      setError(err.message);
+      console.error('Firebase Register Error:', err);
+      setError(err.message || 'Failed to send verification code. Please check your phone number.');
+      if (window.recaptchaVerifier) {
+        try {
+          window.recaptchaVerifier.clear();
+          window.recaptchaVerifier = null;
+        } catch (_) {}
+      }
     }
     setLoading(false);
   };
@@ -53,13 +104,23 @@ export default function RegisterPage() {
     setError('');
     setLoading(true);
     try {
-      const identifier = email || phone;
-      await verifyOtp(identifier, otp);
+      if (!confirmationResult) {
+        throw new Error('No verification session found. Please request a new code.');
+      }
+
+      // 1. Confirm OTP with Firebase client SDK
+      const userCredential = await confirmationResult.confirm(otp);
+      const firebaseToken = await userCredential.user.getIdToken();
+
+      // 2. Submit details + verified token to backend
+      await register(name, email, password, phone, firebaseToken);
+      
       const urlParams = new URLSearchParams(window.location.search);
       const redirectUrl = urlParams.get('redirect') || '/';
       router.push(redirectUrl);
     } catch (err) {
-      setError(err.message);
+      console.error('OTP Submit Error:', err);
+      setError(err.message || 'Invalid or expired verification code');
     }
     setLoading(false);
   };
@@ -68,32 +129,31 @@ export default function RegisterPage() {
     setError('');
     setLoading(true);
     try {
-      const identifier = email || phone;
-      const res = await fetch('/api/auth/resend-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to resend OTP');
+      setupRecaptcha();
+      const appVerifier = window.recaptchaVerifier;
+      const confirmation = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
+      setConfirmationResult(confirmation);
       setOtp('');
-      setResendCooldown(30);
+      setResendCooldown(60);
     } catch (err) {
-      setError(err.message);
+      console.error('OTP Resend Error:', err);
+      setError(err.message || 'Failed to resend OTP');
     }
     setLoading(false);
   };
 
-
   return (
     <div className="auth-page">
+      {/* Invisible container for Firebase reCAPTCHA */}
+      <div id="recaptcha-container"></div>
+
       <div className="auth-card fade-in">
         <div style={{ textAlign: 'center', marginBottom: 'var(--space-md)' }}>
           <span style={{ fontSize: 48 }}>{otpMode ? '🔐' : '🌱'}</span>
         </div>
         <h1>{otpMode ? 'Verify Your Account' : 'Create Account'}</h1>
         <p className="auth-subtitle">
-          {otpMode ? `Enter the 6-digit OTP sent to ${email || phone}` : 'Join Rameshwaram Ayurveda for natural wellness'}
+          {otpMode ? `Enter the 6-digit OTP sent to ${phone}` : 'Join Rameshwaram Ayurveda for natural wellness'}
         </p>
         
         {error && <div className="auth-error">❌ {error}</div>}
@@ -107,14 +167,14 @@ export default function RegisterPage() {
                   value={name} onChange={e => setName(e.target.value)} required />
               </div>
               <div className="form-group">
-                <label>Email Address</label>
-                <input className="form-input" type="email" placeholder="your@email.com"
-                  value={email} onChange={e => setEmail(e.target.value)} required />
+                <label>Phone Number *</label>
+                <input className="form-input" type="tel" placeholder="10-digit mobile number"
+                  value={phone} onChange={e => setPhone(e.target.value)} required />
               </div>
               <div className="form-group">
-                <label>Phone Number</label>
-                <input className="form-input" type="tel" placeholder="10-digit mobile number"
-                  value={phone} onChange={e => setPhone(e.target.value)} />
+                <label>Email Address (Optional)</label>
+                <input className="form-input" type="email" placeholder="your@email.com (for invoices)"
+                  value={email} onChange={e => setEmail(e.target.value)} />
               </div>
               <div className="form-group">
                 <label>Password</label>
@@ -122,7 +182,7 @@ export default function RegisterPage() {
                   value={password} onChange={e => setPassword(e.target.value)} required minLength={6} />
               </div>
               <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%' }} disabled={loading}>
-                {loading ? 'Creating Account...' : 'Create Account'}
+                {loading ? 'Sending Code...' : 'Create Account'}
               </button>
             </form>
 
@@ -139,7 +199,7 @@ export default function RegisterPage() {
                 style={{ textAlign: 'center', fontSize: '24px', letterSpacing: '4px' }} />
             </div>
             <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%' }} disabled={loading || otp.length < 6}>
-              {loading ? 'Verifying...' : 'Verify Email'}
+              {loading ? 'Verifying...' : 'Verify Phone'}
             </button>
             <div style={{ textAlign: 'center', marginTop: '1rem' }}>
               {resendCooldown > 0 ? (
@@ -154,7 +214,6 @@ export default function RegisterPage() {
               )}
             </div>
           </form>
-
         )}
       </div>
     </div>
