@@ -23,11 +23,22 @@ export async function POST(request) {
     const { identifier, firebaseToken } = await request.json();
 
     if (!identifier || !firebaseToken) {
-      return errorResponse('Identifier (email/phone) and firebaseToken are required', 400);
+      return errorResponse('Phone number and firebaseToken are required', 400);
     }
 
-    // Rate limit by identifier: 5 verify attempts per minute per email/phone
-    if (!(await checkRateLimit(identifier, 5, 60000, 'verify-otp-id'))) {
+    // Format phone number to E.164 for database query and matching
+    let targetPhone = identifier.trim();
+    if (!targetPhone.startsWith('+')) {
+      const digits = targetPhone.replace(/\D/g, '');
+      if (digits.length === 10) {
+        targetPhone = `+91${digits}`;
+      } else if (digits.startsWith('91') && digits.length === 12) {
+        targetPhone = `+${digits}`;
+      }
+    }
+
+    // Rate limit by identifier: 5 verify attempts per minute per phone number
+    if (!(await checkRateLimit(targetPhone, 5, 60000, 'verify-otp-id'))) {
       return errorResponse('Too many verification attempts for this account. Please try again later.', 429);
     }
 
@@ -43,17 +54,14 @@ export async function POST(request) {
     }
 
     // Ensure the token's phone matches the user's phone identifier
-    const isEmail = identifier.includes('@');
-    if (!isEmail && !phoneNumbersMatch(identifier, firebasePhone)) {
+    if (!phoneNumbersMatch(targetPhone, firebasePhone)) {
       return errorResponse('Verified phone number does not match the provided phone number', 400);
     }
 
     await connectToDatabase();
     
-    // Find the user
-    const existingUser = await User.findOne(
-      isEmail ? { email: identifier } : { phone: identifier }
-    );
+    // Find the user strictly by phone number
+    const existingUser = await User.findOne({ phone: targetPhone });
 
     if (!existingUser) {
       return errorResponse('User not found', 404);

@@ -8,17 +8,25 @@ import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
 
 export default function LoginPage() {
-  const [identifier, setIdentifier] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [otp, setOtp] = useState('');
   const [otpMode, setOtpMode] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [confirmationResult, setConfirmationResult] = useState(null);
   const [verificationPhone, setVerificationPhone] = useState('');
   const { login, verifyOtp } = useAuth();
   const { clearCart } = useCart();
   const router = useRouter();
+
+  // Countdown timer for resend
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setTimeout(() => setResendCooldown(c => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [resendCooldown]);
 
   const setupRecaptcha = () => {
     if (!window.recaptchaVerifier && auth) {
@@ -42,20 +50,31 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const res = await login(identifier, password);
+      // Clean and validate phone number
+      const phoneInput = phone.trim();
+      let targetPhone = phoneInput;
+      if (!phoneInput.startsWith('+')) {
+        const digits = phoneInput.replace(/\D/g, '');
+        if (digits.length === 10) {
+          targetPhone = `+91${digits}`;
+        } else if (digits.startsWith('91') && digits.length === 12) {
+          targetPhone = `+${digits}`;
+        } else {
+          throw new Error('Please enter a valid 10-digit mobile number.');
+        }
+      }
+
+      const res = await login(targetPhone, password);
       
       if (res && res.requireVerification) {
         if (!auth) {
           throw new Error('Phone verification is currently unavailable. Please verify configuration.');
         }
 
-        const targetPhone = res.phone;
-        if (!targetPhone) {
-          throw new Error('No phone number is associated with this account. Please contact support.');
-        }
-
+        const otpPhone = res.phone || targetPhone;
+        
         // Format to E.164 format
-        let formatted = targetPhone.trim();
+        let formatted = otpPhone.trim();
         if (!formatted.startsWith('+')) {
           const digits = formatted.replace(/\D/g, '');
           if (digits.length === 10) {
@@ -76,6 +95,7 @@ export default function LoginPage() {
         const confirmation = await signInWithPhoneNumber(auth, formatted, appVerifier);
         setConfirmationResult(confirmation);
         setOtpMode(true);
+        setResendCooldown(20);
       } else {
         const urlParams = new URLSearchParams(window.location.search);
         const redirectUrl = urlParams.get('redirect') || '/';
@@ -108,7 +128,18 @@ export default function LoginPage() {
       const firebaseToken = await userCredential.user.getIdToken();
 
       // 2. Submit token to verify-otp server API
-      await verifyOtp(identifier, firebaseToken);
+      // Ensure we pass the clean E.164 phone number as identifier
+      let targetPhone = phone.trim();
+      if (!targetPhone.startsWith('+')) {
+        const digits = targetPhone.replace(/\D/g, '');
+        if (digits.length === 10) {
+          targetPhone = `+91${digits}`;
+        } else if (digits.startsWith('91') && digits.length === 12) {
+          targetPhone = `+${digits}`;
+        }
+      }
+
+      await verifyOtp(targetPhone, firebaseToken);
       
       const urlParams = new URLSearchParams(window.location.search);
       const redirectUrl = urlParams.get('redirect') || '/';
@@ -116,6 +147,23 @@ export default function LoginPage() {
     } catch (err) {
       console.error('OTP Verify Error:', err);
       setError(err.message || 'Invalid or expired verification code');
+    }
+    setLoading(false);
+  };
+
+  const handleResendOtp = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      setupRecaptcha();
+      const appVerifier = window.recaptchaVerifier;
+      const confirmation = await signInWithPhoneNumber(auth, verificationPhone, appVerifier);
+      setConfirmationResult(confirmation);
+      setOtp('');
+      setResendCooldown(20);
+    } catch (err) {
+      console.error('OTP Resend Error:', err);
+      setError(err.message || 'Failed to resend OTP');
     }
     setLoading(false);
   };
@@ -140,9 +188,9 @@ export default function LoginPage() {
           <>
             <form onSubmit={handleLoginSubmit}>
               <div className="form-group">
-                <label>Phone Number or Email Address</label>
-                <input className="form-input" type="text" placeholder="e.g. 9876543210 or your@email.com"
-                  value={identifier} onChange={e => setIdentifier(e.target.value)} required />
+                <label>Phone Number</label>
+                <input className="form-input" type="tel" placeholder="e.g. 9876543210"
+                  value={phone} onChange={e => setPhone(e.target.value)} required />
               </div>
               <div className="form-group">
                 <label>Password</label>
@@ -169,6 +217,18 @@ export default function LoginPage() {
             <button type="submit" className="btn btn-primary btn-lg" style={{ width: '100%' }} disabled={loading || otp.length < 6}>
               {loading ? 'Verifying...' : 'Verify & Sign In'}
             </button>
+            <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+              {resendCooldown > 0 ? (
+                <span style={{ color: 'var(--text-muted, #888)', fontSize: '0.9rem' }}>
+                  Resend OTP in {resendCooldown}s
+                </span>
+              ) : (
+                <button type="button" onClick={handleResendOtp} disabled={loading}
+                  style={{ background: 'none', border: 'none', color: 'var(--primary, #2e7d32)', cursor: 'pointer', fontSize: '0.9rem', textDecoration: 'underline' }}>
+                  Didn&apos;t receive OTP? Resend
+                </button>
+              )}
+            </div>
             <div className="auth-footer" style={{ marginTop: 'var(--space-md)' }}>
               <button type="button" onClick={() => setOtpMode(false)} style={{ background: 'none', border: 'none', color: 'var(--green-700)', cursor: 'pointer', textDecoration: 'underline' }}>
                 Cancel
@@ -180,3 +240,4 @@ export default function LoginPage() {
     </div>
   );
 }
+

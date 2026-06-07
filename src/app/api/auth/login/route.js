@@ -6,8 +6,7 @@ import { successResponse, errorResponse } from '@/lib/apiResponse';
 import { checkRateLimit } from '@/lib/rateLimit';
 
 const loginSchema = z.object({
-  identifier: z.string().optional(),
-  email: z.string().optional(),
+  phone: z.string().min(1, 'Phone number is required'),
   password: z.string().min(1, 'Password is required'),
 });
 
@@ -25,14 +24,24 @@ export async function POST(request) {
       return errorResponse('Validation error', 400, parsed.error.format());
     }
 
-    const { identifier, email, password } = parsed.data;
-    const loginId = identifier || email;
+    const { phone, password } = parsed.data;
 
-    if (!loginId) {
-      return errorResponse('Email or Phone is required', 400);
+    // Format phone number to E.164 for database query
+    let targetPhone = phone.trim();
+    if (!targetPhone.startsWith('+')) {
+      const digits = targetPhone.replace(/\D/g, '');
+      if (digits.length === 10) {
+        targetPhone = `+91${digits}`;
+      } else if (digits.startsWith('91') && digits.length === 12) {
+        targetPhone = `+${digits}`;
+      }
     }
 
-    const user = await getUserByEmailOrPhone(loginId);
+    // Connect to database and look up user strictly by phone number
+    const connectToDatabase = (await import('@/lib/mongodb')).default;
+    const User = (await import('@/models/User')).default;
+    await connectToDatabase();
+    const user = await User.findOne({ phone: targetPhone }).lean();
 
     if (!user) {
       return errorResponse('Invalid credentials', 401);
@@ -67,7 +76,7 @@ export async function POST(request) {
       return successResponse({
         message: 'Account not verified. Verification required.',
         requireVerification: true,
-        identifier: loginId,
+        identifier: targetPhone,
         phone: user.phone,
       }, 200);
     }

@@ -69,3 +69,15 @@ This file tracks all modifications made to the codebase phase by phase, listing 
 * **`src/app/auth/register/page.js`**: Integrated client-side Firebase Phone Auth widget (RecaptchaVerifier and SMS code verification), submitting the verified token to the register API.
 * **`src/app/auth/login/page.js`**: Integrated client-side Phone Auth widget for unverified users logging in, forwarding the verified token to verify-otp.
 * **Deleted Deprecated OTP & Mailer Files** [DELETE]: Removed `src/lib/msg91.js`, `src/models/OTP.js`, `src/app/api/auth/resend-otp/route.js`, and `src/lib/mailer.js`. Uninstalled `nodemailer` package, leaving the codebase lighter, cleaner, and easier to understand.
+
+---
+
+## Phase 8: Mobile Phone-Only Authentication & 20s OTP Resend Cooldown
+
+* **`src/app/auth/login/page.js`**: 
+  * Restrained the login form to accept strictly mobile phone numbers (removed the email login reference).
+  * Added client-side OTP resend capability for login with a **20-second cooldown** timer.
+* **`src/app/auth/register/page.js`**: Updated the registration verification OTP resend cooldown timer from 60 seconds to **20 seconds**.
+* **`src/app/api/auth/login/route.js`**: Changed the login schema validation to require `phone` strictly, connecting and looking up users strictly by their phone numbers and ignoring email fallbacks.
+* **`src/app/api/auth/verify-otp/route.js`**: Removed legacy email-specific branches and ensured the backend always validates that the user's registered phone number matches the decoded Firebase phone number token before updating the verified status.
+

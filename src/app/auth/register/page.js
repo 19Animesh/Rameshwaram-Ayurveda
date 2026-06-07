@@ -85,7 +85,7 @@ export default function RegisterPage() {
       const confirmation = await signInWithPhoneNumber(auth, targetPhone, appVerifier);
       setConfirmationResult(confirmation);
       setOtpMode(true);
-      setResendCooldown(60);
+      setResendCooldown(20);
     } catch (err) {
       console.error('Firebase Register Error:', err);
       setError(err.message || 'Failed to send verification code. Please check your phone number.');
@@ -134,7 +134,7 @@ export default function RegisterPage() {
       const confirmation = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
       setConfirmationResult(confirmation);
       setOtp('');
-      setResendCooldown(60);
+      setResendCooldown(20);
     } catch (err) {
       console.error('OTP Resend Error:', err);
       setError(err.message || 'Failed to resend OTP');
