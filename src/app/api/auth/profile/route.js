@@ -11,7 +11,7 @@ export async function GET(request) {
   try {
     const authUser = getUserFromRequest(request);
     if (!authUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+      return NextResponse.json({ user: null });
     }
 
     await connectToDatabase();
