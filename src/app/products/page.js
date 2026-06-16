@@ -29,6 +29,9 @@ function ProductsContent() {
   const [dbCategories, setDbCategories] = useState([]);
   const [dbBrands, setDbBrands] = useState([]);
 
+  const [fetchError, setFetchError] = useState('');
+  const [showMobileFilters, setShowMobileFilters] = useState(false);
+
   // Fetch dynamic filters on mount
   useEffect(() => {
     fetch('/api/products/filters')
@@ -72,13 +75,15 @@ function ProductsContent() {
     try {
       const res = await fetch(`/api/products?${params}`);
       const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Failed to load products');
       const productData = result.data || {};
       setProducts(productData.products || []);
       setTotalProducts(productData.total || 0);
       setTotalPages(productData.totalPages || 1);
       setCurrentPage(productData.page || 1);
-    } catch {
-      // Silently handle errors
+      setFetchError('');
+    } catch (err) {
+      setFetchError(err.message || 'Failed to load products. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -137,8 +142,18 @@ function ProductsContent() {
 
       <div className="container">
         <div className="products-layout">
+          {/* Mobile Filter Toggle Button */}
+          <button 
+            type="button"
+            className="btn btn-secondary mobile-filter-toggle"
+            onClick={() => setShowMobileFilters(!showMobileFilters)}
+            style={{ width: '100%', marginBottom: 'var(--space-md)' }}
+          >
+            {showMobileFilters ? 'Hide Filters ✕' : 'Filter Products 🔍'}
+          </button>
+
           {/* ── Filter Sidebar ── */}
-          <aside className="filter-sidebar">
+          <aside className={`filter-sidebar ${showMobileFilters ? 'show' : ''}`}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
               <h3 style={{ fontSize: '16px', margin: 0, fontFamily: 'var(--font-heading)' }}>🔍 Filters</h3>
               <button onClick={clearFilters} className="btn btn-sm" style={{ fontSize: '12px', padding: '4px 10px', background: 'var(--gray-100)', color: 'var(--gray-600)' }}>
@@ -224,6 +239,13 @@ function ProductsContent() {
             {loading ? (
               <div className="products-grid">
                 <ProductSkeleton count={12} />
+              </div>
+            ) : fetchError ? (
+              <div className="empty-state">
+                <span className="empty-icon">⚠️</span>
+                <h3>Could not load products</h3>
+                <p>{fetchError}</p>
+                <button onClick={() => fetchProducts(1)} className="btn btn-primary">Try Again</button>
               </div>
             ) : products.length === 0 ? (
               <div className="empty-state">

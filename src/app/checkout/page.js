@@ -124,6 +124,13 @@ export default function CheckoutPage() {
   const initializeRazorpayPayment = async () => {
     setLoading(true);
     try {
+      // Validate all cart items have valid MongoDB ObjectIds before API call
+      const OBJECTID_RE = /^[a-fA-F0-9]{24}$/;
+      const invalidItems = cart.filter(item => !item.id || !OBJECTID_RE.test(item.id));
+      if (invalidItems.length > 0) {
+        throw new Error('Some cart items have invalid IDs. Please refresh and try again.');
+      }
+
       // Send only identifiers — never prices
       const createRes = await fetch('/api/payment/create-order', {
         method: 'POST',
@@ -226,8 +233,9 @@ export default function CheckoutPage() {
     } catch (err) {
       console.error('Verification error:', err);
       alert(err.message || 'Payment succeeded but order creation failed. Contact support with your payment ID.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   // ── Order Success Screen ───────────────────────────────────────────────────
@@ -252,7 +260,7 @@ export default function CheckoutPage() {
                   <div>
                     <div style={{ fontWeight: 600, fontSize: 14 }}>{item.name}</div>
                     <div style={{ fontSize: 12, color: 'var(--gray-400)', marginTop: 3 }}>
-                      Qty: {item.quantity} Ã— {formatPrice(item.price)}
+                      Qty: {item.quantity} &times; {formatPrice(item.price)}
                     </div>
                   </div>
                   <span style={{ fontWeight: 700, color: '#1B4332', fontSize: 15 }}>

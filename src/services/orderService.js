@@ -3,13 +3,26 @@ import Order from '@/models/Order';
 import Product from '@/models/Product';
 import mongoose from 'mongoose';
 
-export async function getOrders(userId = null) {
+export async function getOrders(userId = null, { page = 1, limit = 50 } = {}) {
   await connectToDatabase();
-  const where = userId ? { userId } : {};
+  let where = {};
+  if (userId) {
+    try {
+      where = { userId: new mongoose.Types.ObjectId(userId) };
+    } catch {
+      // Invalid ObjectId format — return empty
+      return { orders: [], total: 0 };
+    }
+  }
 
-  const orders = await Order.find(where).sort({ createdAt: -1 });
+  const skip = (page - 1) * limit;
 
-  return orders.map(o => {
+  const [rawOrders, total] = await Promise.all([
+    Order.find(where).sort({ createdAt: -1 }).skip(skip).limit(limit),
+    Order.countDocuments(where),
+  ]);
+
+  const orders = rawOrders.map(o => {
     const rawForm = o.toObject();
     return {
       ...rawForm,
@@ -20,6 +33,8 @@ export async function getOrders(userId = null) {
       })(),
     };
   });
+
+  return { orders, total };
 }
 
 /** @deprecated Use `/api/orders` route which performs server-side payment verification. */

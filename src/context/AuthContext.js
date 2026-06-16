@@ -13,7 +13,8 @@ export function AuthProvider({ children }) {
         const res = await fetch('/api/auth/profile');
         if (res.ok) {
           const data = await res.json();
-          setUser(data.user);
+          // Profile API returns { user } directly; login/register return { data: { user } }
+          setUser(data.user || data.data?.user || null);
         } else {
           setUser(null);
         }
@@ -26,11 +27,11 @@ export function AuthProvider({ children }) {
     fetchProfile();
   }, []);
 
-  const login = async (identifier, password) => {
+  const login = async (phone, password) => {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ identifier, password }),
+      body: JSON.stringify({ phone, password }),
     });
     const json = await res.json();
     if (!res.ok) throw new Error(json.error || 'Login failed');

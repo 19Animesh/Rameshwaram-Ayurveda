@@ -114,7 +114,7 @@ export default function Header() {
           <Link href="/products" className="nav-link">
             🛍️ <span>Shop</span>
           </Link>
-          <Link href="/cart" className="nav-link">
+          <Link href="/cart" className="nav-link nav-cart-link">
             <span className={cartBounce ? 'cart-bounce' : ''} style={{ display: 'inline-block' }}>🛒</span>
             <span>Cart</span>
             {mounted && cartCount > 0 && <span className="nav-badge">{cartCount}</span>}
@@ -142,7 +142,99 @@ export default function Header() {
           ) : (
             <div style={{ width: 68, height: 36 }} />
           )}
+
+          {/* Hamburger Menu Toggle Button */}
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="mobile-menu-btn"
+            style={{ border: 'none', background: 'none', cursor: 'pointer' }}
+            title="Toggle Menu"
+          >
+            {mobileMenuOpen ? '✕' : '☰'}
+          </button>
         </nav>
+      </div>
+
+      {/* Mobile Slide-Over Drawer Overlay */}
+      <div
+        className={`drawer-overlay ${mobileMenuOpen ? 'open' : ''}`}
+        onClick={() => setMobileMenuOpen(false)}
+      >
+        <div
+          className="drawer-content"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="drawer-header">
+            <div className="drawer-title">🌿 Rameshwaram Ayurveda</div>
+            <button className="drawer-close-btn" onClick={() => setMobileMenuOpen(false)}>✕</button>
+          </div>
+
+          <nav className="drawer-nav">
+            <Link
+              href="/products"
+              className="drawer-nav-item"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              🛍️ Shop All Medicines
+            </Link>
+            <Link
+              href="/cart"
+              className="drawer-nav-item"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              🛒 Shopping Cart
+              {mounted && cartCount > 0 && (
+                <span className="nav-badge" style={{ position: 'static', transform: 'none', marginLeft: 8 }}>
+                  {cartCount}
+                </span>
+              )}
+            </Link>
+            {mounted && user ? (
+              <>
+                <Link
+                  href="/account"
+                  className="drawer-nav-item"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  👤 My Profile ({user.name})
+                </Link>
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    className="drawer-nav-item"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    ⚙️ Admin Panel
+                  </Link>
+                )}
+                <button
+                  onClick={() => { logout(); clearCart(); setMobileMenuOpen(false); }}
+                  className="drawer-nav-item"
+                  style={{ width: '100%', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left' }}
+                >
+                  🚪 Logout
+                </button>
+              </>
+            ) : (
+              <Link
+                href="/auth/login"
+                className="drawer-nav-item"
+                style={{ background: 'var(--green-700)', color: 'white' }}
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                🔑 Sign In
+              </Link>
+            )}
+          </nav>
+
+          {mounted && user && (
+            <div className="drawer-footer">
+              <div className="drawer-user-info">
+                Logged in as <strong>{user.name}</strong>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

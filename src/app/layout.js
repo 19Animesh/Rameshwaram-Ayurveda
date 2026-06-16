@@ -40,7 +40,7 @@ export default function RootLayout({ children }) {
             <main>{children}</main>
             <Footer />
             <a 
-              href="https://wa.me/919632324141?text=Hi! I need help with Ayurvedic medicines" 
+              href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '919632324141'}?text=Hi! I need help with Ayurvedic medicines`} 
               target="_blank" 
               rel="noopener noreferrer"
               className="whatsapp-float"

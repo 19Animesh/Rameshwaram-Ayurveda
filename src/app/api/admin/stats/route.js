@@ -41,10 +41,21 @@ export async function GET(request) {
       Product.aggregate([
         { $group: { _id: '$category', count: { $sum: 1 } } }
       ]),
-      Product.find({}, 'name reviewCount price')
-        .sort({ reviewCount: -1 })
-        .limit(5)
-        .lean(),
+      // Real top products by units sold — aggregate from completed orders
+      Order.aggregate([
+        { $match: { status: { $in: ['confirmed', 'processing', 'shipped', 'delivered'] } } },
+        { $unwind: '$items' },
+        {
+          $group: {
+            _id: '$items.productId',
+            name: { $first: '$items.name' },
+            totalSold: { $sum: '$items.quantity' },
+            totalRevenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } },
+          }
+        },
+        { $sort: { totalSold: -1 } },
+        { $limit: 5 },
+      ]),
     ]);
 
     const lowStockProducts = lowStockProductsRaw.map(p => ({
@@ -54,10 +65,10 @@ export async function GET(request) {
     }));
 
     const topProducts = topProductsRaw.map(p => ({
-      id: p._id.toString(),
-      name: p.name,
-      sales: p.reviewCount,
-      revenue: (p.price || 0) * (p.reviewCount || 0)
+      id: p._id?.toString() || '',
+      name: p.name || 'Unknown Product',
+      sales: p.totalSold || 0,
+      revenue: p.totalRevenue || 0,
     }));
 
     const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);

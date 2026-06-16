@@ -30,9 +30,13 @@ export function getUserFromRequest(request) {
   
   if (!token) {
     const cookieHeader = request.headers.get('cookie') || '';
-    const match = cookieHeader.match(/(?:(?:^|.*;\s*)token\s*\=\s*([^;]*).*$)|^.*$/);
-    if (match && match[1]) {
-      token = match[1];
+    // Reliable cookie extraction: split on ';', find token= entry, rejoin on '=' to preserve base64 padding
+    const tokenCookie = cookieHeader
+      .split(';')
+      .map(c => c.trim())
+      .find(c => c.startsWith('token='));
+    if (tokenCookie) {
+      token = tokenCookie.split('=').slice(1).join('=');
     }
   }
 
@@ -44,8 +48,6 @@ export function getUserFromRequest(request) {
   const user = verifyToken(token);
   if (!user) {
     console.warn('[auth] getUserFromRequest: Token verification failed (expired or invalid secret)');
-  } else {
-    console.info('[auth] getUserFromRequest: Decoded user =', { id: user.id, role: user.role });
   }
   return user;
 }

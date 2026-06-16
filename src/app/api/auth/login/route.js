@@ -1,6 +1,5 @@
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
-import { getUserByEmailOrPhone } from '@/services/userService';
 import { signToken } from '@/lib/auth';
 import { successResponse, errorResponse } from '@/lib/apiResponse';
 import { checkRateLimit } from '@/lib/rateLimit';
