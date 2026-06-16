@@ -11,7 +11,10 @@ function deserialiseOrder(order) {
     address: order.shippingAddress || (() => {
       try { return JSON.parse(order.shippingAddr || '{}'); } catch { return {}; }
     })(),
-    statusHistory: [{ status: order.status, date: order.updatedAt, note: `Order ${order.status}` }],
+    // Preserve real statusHistory; synthesise one only if none recorded yet
+    statusHistory: (order.statusHistory && order.statusHistory.length > 0)
+      ? order.statusHistory
+      : [{ status: order.status, date: order.updatedAt, note: `Order ${order.status}` }],
   };
 }
 
@@ -61,6 +64,14 @@ export async function PUT(request, { params }) {
     const { status } = await request.json();
     if (!status) {
       return NextResponse.json({ error: 'Status is required' }, { status: 400 });
+    }
+
+    const VALID_STATUSES = ['confirmed', 'processing', 'shipped', 'delivered', 'cancelled'];
+    if (!VALID_STATUSES.includes(status)) {
+      return NextResponse.json(
+        { error: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}` },
+        { status: 400 }
+      );
     }
 
     await connectToDatabase();

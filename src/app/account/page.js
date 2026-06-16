@@ -29,11 +29,17 @@ function Avatar({ name, size = 72 }) {
 
 // ── Order status badge ───────────────────────────────────────────────
 const STATUS_COLOR = {
-  PENDING: { bg: '#fff7e0', color: '#b45309' },
-  PAID:    { bg: '#e0f7f0', color: '#065f46' },
-  SHIPPED: { bg: '#e0f0ff', color: '#1e40af' },
-  DELIVERED: { bg: '#e6f5e0', color: '#15803d' },
-  CANCELLED: { bg: '#fee2e2', color: '#b91c1c' },
+  confirmed:  { bg: '#e0f7f0', color: '#065f46' },
+  processing: { bg: '#e0f0ff', color: '#1e40af' },
+  shipped:    { bg: '#ede9fe', color: '#5b21b6' },
+  delivered:  { bg: '#e6f5e0', color: '#15803d' },
+  cancelled:  { bg: '#fee2e2', color: '#b91c1c' },
+  // Legacy uppercase fallbacks for older orders
+  PENDING:    { bg: '#fff7e0', color: '#b45309' },
+  PAID:       { bg: '#e0f7f0', color: '#065f46' },
+  SHIPPED:    { bg: '#e0f0ff', color: '#1e40af' },
+  DELIVERED:  { bg: '#e6f5e0', color: '#15803d' },
+  CANCELLED:  { bg: '#fee2e2', color: '#b91c1c' },
 };
 function StatusBadge({ status }) {
   const s = STATUS_COLOR[status] || STATUS_COLOR.PENDING;
@@ -77,7 +83,8 @@ export default function AccountPage() {
       fetchOrders(userId)
         .then(res => {
           const payload = res.data || res;
-          setOrders(payload.orders || []);
+          // Support both paginated { orders, total } and legacy array shape
+          setOrders(payload.orders || (Array.isArray(payload) ? payload : []));
         })
         .catch(() => {})
         .finally(() => setOrdersLoading(false));
@@ -88,15 +95,30 @@ export default function AccountPage() {
   useEffect(() => {
     const userId = user?.id || user?._id;
     if (userId && activeTab === 'addresses' && addresses === null) {
+      // Try the Address collection first; fall back to extracting from past orders
       fetch('/api/auth/profile')
         .then(r => r.json())
         .then(res => {
            const payload = res.data || res;
-           setAddresses(payload.user?.addresses || []);
+           const savedAddresses = payload.user?.addresses || [];
+           if (savedAddresses.length > 0) {
+             setAddresses(savedAddresses);
+           } else {
+             // Derive unique shipping addresses from past orders as fallback
+             const orderAddrs = orders
+               .map(o => o.address)
+               .filter(a => a && a.fullName && a.street)
+               .reduce((unique, addr) => {
+                 const key = `${addr.street}|${addr.pincode}`.toLowerCase();
+                 if (!unique.has(key)) unique.set(key, addr);
+                 return unique;
+               }, new Map());
+             setAddresses(Array.from(orderAddrs.values()));
+           }
         })
         .catch(() => setAddresses([]));
     }
-  }, [user, activeTab, addresses]);
+  }, [user, activeTab, addresses, orders]);
 
   if (!user) {
     return (
@@ -290,8 +312,8 @@ export default function AccountPage() {
                       </div>
                       <div style={{ fontSize: 13, color: 'var(--gray-400)', marginTop: 'var(--space-sm)', paddingTop: 'var(--space-sm)', borderTop: '1px solid var(--gray-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span>Payment: <strong style={{ color: 'var(--gray-600)', textTransform: 'uppercase' }}>{order.paymentMethod}</strong></span>
-                        <Link href={`/orders/${order.id}/track`} className="btn btn-sm btn-primary" style={{ fontSize: 12, padding: '5px 12px' }}>
-                          🚚 Track Order
+                        <Link href={`/account?tab=orders`} className="btn btn-sm btn-primary" style={{ fontSize: 12, padding: '5px 12px' }}>
+                          📦 View Orders
                         </Link>
                       </div>
                     </div>

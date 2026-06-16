@@ -162,7 +162,7 @@ export default function HomePage() {
       <section className="section" style={{ background: 'var(--cream)' }}>
         <div className="container">
           <div className="section-header">
-            <h2>Why Choose AyurVeda Store?</h2>
+            <h2>Why Choose Rameshwaram Ayurveda?</h2>
             <div className="section-line"></div>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 'var(--space-lg)' }}>

@@ -19,7 +19,7 @@ export async function getProducts({ page = 1, limit = 12, search, category, bran
   if (brand) where.brandName = { $regex: new RegExp(`^${escapeRegex(brand)}$`, 'i') };
   
   if (search) {
-    const escapedSearch = escapeRegex(search);
+    const escapedSearch = escapeRegex(search.trim().slice(0, 100));
     where.$or = [
       { name: { $regex: escapedSearch, $options: 'i' } },
       { brandName: { $regex: escapedSearch, $options: 'i' } },
@@ -49,7 +49,7 @@ export async function getProducts({ page = 1, limit = 12, search, category, bran
     sortObj = { createdAt: -1 };
   }
 
-  const queryLimit = fetchAll ? 10000 : limit;
+  const queryLimit = fetchAll ? 500 : limit;
 
   try {
     const skipAmount = (page - 1) * queryLimit;

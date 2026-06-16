@@ -82,7 +82,9 @@ export default function AdminPage() {
       const statsData = statsFull.data || {};
       const ordersData = ordersFull.data || {};
       setStats(statsData);
-      setOrders(ordersData.orders || []);
+      // Support both legacy array and new paginated { orders, total } shape
+      const rawOrders = ordersData.orders || (Array.isArray(ordersData) ? ordersData : []);
+      setOrders(rawOrders);
     } catch (err) { console.error(err); }
     // Load first page of products
     await loadProducts(1, '');
@@ -345,7 +347,7 @@ export default function AdminPage() {
       <aside className="admin-sidebar">
         <div style={{ padding: 'var(--space-md) var(--space-lg)', marginBottom: 'var(--space-md)' }}>
           <div style={{ fontFamily: 'var(--font-heading)', fontSize: '1.1rem', fontWeight: 700 }}>🌿 Admin Panel</div>
-          <div style={{ fontSize: 12, opacity: 0.6, marginTop: 4 }}>{user.email}</div>
+          <div style={{ fontSize: 12, opacity: 0.6, marginTop: 4 }}>{user.email || user.phone || 'Admin'}</div>
         </div>
         <button className={`admin-nav-item ${activeTab === 'dashboard' ? 'active' : ''}`} onClick={() => setActiveTab('dashboard')}>📊 Dashboard</button>
         <button className={`admin-nav-item ${activeTab === 'products' ? 'active' : ''}`} onClick={() => setActiveTab('products')}>💊 Products ({productTotal})</button>

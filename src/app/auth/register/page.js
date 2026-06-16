@@ -113,7 +113,8 @@ export default function RegisterPage() {
       const firebaseToken = await userCredential.user.getIdToken();
 
       // 2. Submit details + verified token to backend
-      await register(name, email, password, phone, firebaseToken);
+      // Use formattedPhone (E.164 e.g. +919876543210) — must match Firebase token
+      await register(name, email, password, formattedPhone, firebaseToken);
       
       const urlParams = new URLSearchParams(window.location.search);
       const redirectUrl = urlParams.get('redirect') || '/';

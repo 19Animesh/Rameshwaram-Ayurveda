@@ -11,7 +11,9 @@ export const dynamic = 'force-dynamic';
 export async function GET(request, { params }) {
   try {
     const { id } = params; // No await needed in Next.js 14
-    
+    if (!id || !/^[a-fA-F0-9]{24}$/.test(id)) {
+      return errorResponse('Invalid product ID format', 400);
+    }
     await connectToDatabase();
     const productRaw = await Product.findById(id).lean();
     if (!productRaw) {
@@ -31,6 +33,9 @@ export async function GET(request, { params }) {
 export async function PUT(request, { params }) {
   try {
     const { id } = params; // No await needed in Next.js 14
+    if (!id || !/^[a-fA-F0-9]{24}$/.test(id)) {
+      return errorResponse('Invalid product ID format', 400);
+    }
 
     // Admin guard
     const authUser = getUserFromRequest(request);
@@ -59,7 +64,21 @@ export async function PUT(request, { params }) {
     for (const key of allowed) {
       if (key in updates) safeUpdates[key] = updates[key];
     }
-    console.log('PUT fields being written:', { safeUpdates });
+
+    // Validate price if being updated
+    if ('price' in safeUpdates) {
+      const price = Number(safeUpdates.price);
+      if (!price || price <= 0 || isNaN(price)) {
+        return errorResponse('A valid selling price greater than 0 is required', 400);
+      }
+    }
+    // Validate expiryDate is a future date if being updated
+    if (safeUpdates.expiryDate) {
+      const expiry = new Date(safeUpdates.expiryDate);
+      if (isNaN(expiry.getTime()) || expiry <= new Date()) {
+        return errorResponse('Expiry date must be a valid future date', 400);
+      }
+    }
 
     // Handle Image Replacement
     if (updates.image && (updates.image.startsWith('data:image/') || updates.image.startsWith('http'))) {
@@ -99,6 +118,9 @@ export async function PUT(request, { params }) {
 export async function DELETE(request, { params }) {
   try {
     const { id } = params; // No await needed in Next.js 14
+    if (!id || !/^[a-fA-F0-9]{24}$/.test(id)) {
+      return errorResponse('Invalid product ID format', 400);
+    }
 
     // Admin guard
     const authUser = getUserFromRequest(request);
