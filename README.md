@@ -1,34 +1,63 @@
 # Rameshwaram Ayurveda E-Commerce Platform 🌿
 
-A premium, full-stack Ayurvedic e-commerce platform built with **Next.js 14**, **React**, and **MongoDB**. This platform provides a seamless shopping experience for traditional Ayurvedic medicines, featuring secure authentication, a dynamic product catalog, and a robust admin management system.
+A premium, production-ready, full-stack Ayurvedic e-commerce platform built with **Next.js 14**, **React**, and **MongoDB**. This platform provides a seamless, mobile-friendly shopping experience for traditional Ayurvedic medicines, featuring secure authentication, server-verified payments, a dynamic product catalog, and a robust admin dashboard.
+
+---
 
 ## 🚀 Key Features
 
-- **Storefront**: Browse a curated catalog of 350+ traditional Ayurvedic medicines organized by category and brand.
-- **Dynamic Filtering**: Advanced discovery system allowing users to filter by Category (Immunity, Digestion, etc.) and Brand, with options fetched dynamically from the database.
-- **Authentication**: Secure registration and login flow utilizing **bcrypt** password hashing paired with a **One-Time Password (OTP)** verification system for verified accounts.
-- **High-Performance Media**: Optimized image delivery powered by **Cloudinary**, featuring deterministic asset management and responsive loading.
-- **Secure Payments**: Integrated with **Razorpay** for a reliable and localized checkout experience.
-- **Admin Dashboard**: A centralized command center for tracking order statistics, managing inventory, and performing real-time CRUD operations on products.
-- **Architecture**: Clean, decoupled architecture using a **Service Layer** pattern to separate business logic from API routes.
-- **Aesthetics**: Premium UI design using glassmorphism, modern typography (Inter/Outfit), and smooth micro-animations.
+### 🛒 Storefront & Catalogue
+- **Curated Selection:** Browse over 350+ traditional Ayurvedic medicines organized dynamically by categories and brands.
+- **Dynamic Filtering:** Advanced discovery system allowing users to filter by Category and Brand, with real-time options fetched directly from the database.
+- **Mobile-Friendly Layout:** Dynamic, collapsible mobile filter sidebar ensuring products remain highly visible and accessible on small screens.
+
+### 🔒 Secure Authentication & User Accounts
+- **SMS OTP Verification:** Secure sign-in and sign-up flow utilizing Firebase Authentication Client SDK for One-Time Password (OTP) validation.
+- **Unified Profile:** Manage account details, track past orders, and view delivery addresses automatically derived from checkout history.
+
+### 💳 Localized Checkout & Payments
+- **Razorpay Integration:** Fast, secure, and native payment gateway integration for frictionless transactions.
+- **Server-Side Verification:** Cryptographically verifies payment signatures and recalculates totals directly in Next.js API endpoints before capturing and confirming orders to prevent client-side price tampering.
+
+### 📊 Admin Panel & Management
+- **Interactive Dashboard:** Track sales, monitor real-time order states, and analyze category distributions.
+- **Horizontal Navigation:** Fully responsive admin sidebar that adapts into a sleek top tab navigation bar on mobile and tablet devices.
+- **Inventory Controls:** Fast inline stock management, product CRUD controls, and real-time low-stock alerts.
+
+### 🎨 Premium Aesthetics
+- **Modern Typography & Layout:** Styled using curated, harmonious CSS palettes, Google Fonts (Inter/Outfit), glassmorphism, and smooth micro-animations.
+- **Optimized Media:** Responsive and deferred image loading with blur-up placeholders powered by Cloudinary.
+
+---
 
 ## 🛠️ Technology Stack
 
-- **Framework**: [Next.js 14](https://nextjs.org/) (App Router)
-- **Database**: [MongoDB](https://www.mongodb.com/) with [Mongoose ODM](https://mongoosejs.com/)
-- **Styling**: Vanilla CSS (Custom Design System)
-- **Media Hosting**: [Cloudinary](https://cloudinary.com/)
-- **Payment Gateway**: [Razorpay](https://razorpay.com/)
-- **Validation**: [Zod](https://zod.dev/) for type-safe API schemas
-- **Notifications**: [NodeMailer](https://nodemailer.com/) (OTP Delivery)
-- **Monitoring**: [@vercel/analytics](https://vercel.com/analytics)
+- **Framework:** [Next.js 14](https://nextjs.org/) (App Router)
+- **Database:** [MongoDB](https://www.mongodb.com/) with [Mongoose ODM](https://mongoosejs.com/)
+- **Styling:** Vanilla CSS (Custom Design System with responsive media query grid)
+- **Auth Provider:** [Firebase Auth](https://firebase.google.com/docs/auth) (Client-side SMS OTP confirmation)
+- **Media Hosting:** [Cloudinary](https://cloudinary.com/) (Deterministic image optimization)
+- **Payment Gateway:** [Razorpay](https://razorpay.com/)
+- **Validation:** [Zod](https://zod.dev/) for type-safe API schemas
+- **Monitoring:** [@vercel/analytics](https://vercel.com/analytics)
+
+---
+
+## 🔒 Security & Performance
+
+- **Rate Limiting:** Protection against API abuse and brute-force attempts on sensitive authentication endpoints.
+- **Security Headers:** Fully configured Content Security Policy (CSP), HTTP Strict Transport Security (HSTS), X-Frame-Options (DENY), and X-Content-Type-Options (nosniff) inside `next.config.mjs`.
+- **Validation Layer:** Robust API route input sanitization and Zod parsing preventing NoSQL injection and ReDoS vulnerabilities (capped inputs).
+- **SEO & Accessibility:** Structured semantic HTML5 elements, unique testing IDs, `robots.txt` crawler guards, and standard dynamic `sitemap.xml`.
+
+---
 
 ## 📦 Getting Started Locally
 
 ### Prerequisites
 - Node.js (v18+)
 - MongoDB Instance (Atlas or Local)
+- Firebase Project Setup (for Phone OTP authentication)
 - Cloudinary Account
 - Razorpay API Keys
 
@@ -46,30 +75,24 @@ A premium, full-stack Ayurvedic e-commerce platform built with **Next.js 14**, *
    ```
 
 3. **Set up Environment Variables:**
-   Create a `.env` file in the root directory and populate it based on `.env.example`.
+   Create a `.env` file in the root directory and populate it based on `.env.example`. Make sure to fill in all API secrets and environment constants.
 
 4. **Start the Development Server:**
    ```bash
    npm run dev
    ```
 
-5. **Access:** Open [http://localhost:3000](http://localhost:3000)
+5. **Access:** Open [http://localhost:3000](http://localhost:3000) inside your browser.
+
+---
 
 ## ⚙️ Project Structure
 
-- `src/app/api`: Clean API routes with Zod validation.
-- `src/services`: Decoupled business logic (Orders, Products, Users).
+- `src/app/api`: Clean API routes with schema-based Zod input validations.
+- `src/services`: Decoupled business logic (Orders, Products, Users) following the Service Layer pattern.
 - `src/models`: Mongoose schemas for data persistence.
-- `src/lib`: Core utilities (Cloudinary, DB Connection, OTP Mailer).
-- `src/components`: Modular UI components with a custom design system.
-
-## 🔒 Security & Performance
-
-- **Rate Limiting**: Integrated protection against API abuse.
-- **Deterministic Images**: Automatic slug-based image naming for Cloudinary consistency.
-- **Schema Validation**: All incoming requests are validated using Zod to prevent malformed data.
-- **Vercel Analytics**: Real-time performance monitoring and user insights.
+- `src/lib`: Core utilities (Cloudinary, DB Connection, Auth helpers, Constants).
+- `src/components`: Modular UI components with responsive CSS (Header with mobile navigation drawer, ProductCard variants, Admin Tables).
 
 ---
 *Developed for Rameshwaram Ayurveda.*
-

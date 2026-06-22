@@ -11,9 +11,13 @@ export function AuthProvider({ children }) {
     const fetchProfile = async () => {
       try {
         const res = await fetch('/api/auth/profile');
+        if (res.status === 401 || res.status === 403) {
+          // Not logged in — expected state, no error needed
+          setUser(null);
+          return;
+        }
         if (res.ok) {
           const data = await res.json();
-          // Profile API returns { user } directly; login/register return { data: { user } }
           setUser(data.user || data.data?.user || null);
         } else {
           setUser(null);
@@ -84,7 +88,7 @@ export function AuthProvider({ children }) {
     } catch (error) {
       console.error('Logout API failed:', error);
     }
-    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+    // Note: httpOnly cookies cannot be cleared from JS — the server /api/auth/logout call above handles it
     setUser(null);
   };
 

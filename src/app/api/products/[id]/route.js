@@ -43,7 +43,7 @@ export async function PUT(request, { params }) {
       console.warn('PUT /products/:id - Unauthorized attempt', { id });
       return errorResponse('Unauthorized', 401);
     }
-    console.log('Admin updating product', { userId: authUser.id, productId: id });
+    console.info('Admin updating product', { userId: authUser.id, productId: id });
 
     const updates = await request.json();
     

@@ -48,7 +48,7 @@ export default function CartPage() {
                 </div>
                 <div className="cart-item-info">
                   <Link href={`/products/${item.id}`} className="cart-item-name">{item.name}</Link>
-                  <div className="cart-item-brand">{item.brand}</div>
+                  <div className="cart-item-brand">{item.brandName}</div>
                   <div className="cart-item-price">{formatPrice(item.price)} × {item.quantity}</div>
                 </div>
                 <div className="cart-item-actions">

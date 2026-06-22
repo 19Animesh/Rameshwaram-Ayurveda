@@ -29,14 +29,18 @@ export function getUserFromRequest(request) {
   let token = authHeader.replace('Bearer ', '').trim();
   
   if (!token) {
-    const cookieHeader = request.headers.get('cookie') || '';
-    // Reliable cookie extraction: split on ';', find token= entry, rejoin on '=' to preserve base64 padding
-    const tokenCookie = cookieHeader
-      .split(';')
-      .map(c => c.trim())
-      .find(c => c.startsWith('token='));
-    if (tokenCookie) {
-      token = tokenCookie.split('=').slice(1).join('=');
+    // Use the native Next.js cookie API — handles encoding and edge cases correctly
+    token = request.cookies?.get?.('token')?.value || '';
+    if (!token) {
+      // Fallback: manual parse for environments that expose raw cookie header
+      const cookieHeader = request.headers.get('cookie') || '';
+      const tokenCookie = cookieHeader
+        .split(';')
+        .map(c => c.trim())
+        .find(c => c.startsWith('token='));
+      if (tokenCookie) {
+        token = tokenCookie.split('=').slice(1).join('=');
+      }
     }
   }
 

@@ -11,6 +11,15 @@ export const dynamic = 'force-dynamic';
  * Requires ?confirm=DELETE_ALL_ORDERS query param as a safety guard.
  */
 export async function DELETE(request) {
+  // This endpoint exists only for development / demo reset purposes.
+  // It is permanently disabled in production to prevent accidental or malicious data loss.
+  if (process.env.NODE_ENV === 'production') {
+    return NextResponse.json(
+      { error: 'This endpoint is disabled in production.' },
+      { status: 403 }
+    );
+  }
+
   try {
     const authUser = getUserFromRequest(request);
     if (!authUser || authUser.role !== 'admin') {

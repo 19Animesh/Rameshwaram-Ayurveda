@@ -48,6 +48,7 @@ export default function CheckoutPage() {
   const [finalOrderState, setFinalOrderState] = useState(null);
   const [orderId, setOrderId] = useState('');
   const [loading, setLoading] = useState(false);
+  const [addressError, setAddressError] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('upi');
   const [address, setAddress] = useState({
     fullName: '',
@@ -112,9 +113,11 @@ export default function CheckoutPage() {
   const handlePlaceOrder = async (e) => {
     e.preventDefault();
     if (!address.fullName || !address.phone || !address.street || !address.city || !address.state || !address.pincode) {
-      alert('Please fill all address fields');
+      setAddressError('Please fill in all address fields before proceeding.');
+      window.scrollTo({ top: 300, behavior: 'smooth' });
       return;
     }
+    setAddressError('');
     // Online payment via Razorpay
     await initializeRazorpayPayment();
   };

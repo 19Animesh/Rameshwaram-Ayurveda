@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
+import { normalizePhone } from '@/lib/phone';
 
 export default function RegisterPage() {
   const [name, setName] = useState('');
@@ -66,17 +67,9 @@ export default function RegisterPage() {
       const appVerifier = window.recaptchaVerifier;
 
       // Format phone number to international E.164 format (e.g. +91XXXXXXXXXX)
-      let phoneInput = phone.trim();
-      let targetPhone = phoneInput;
-      if (!phoneInput.startsWith('+')) {
-        const digits = phoneInput.replace(/\D/g, '');
-        if (digits.length === 10) {
-          targetPhone = `+91${digits}`;
-        } else if (digits.startsWith('91') && digits.length === 12) {
-          targetPhone = `+${digits}`;
-        } else {
-          throw new Error('Please enter a valid 10-digit mobile number.');
-        }
+      const targetPhone = normalizePhone(phone);
+      if (!targetPhone) {
+        throw new Error('Please enter a valid 10-digit mobile number.');
       }
 
       setFormattedPhone(targetPhone);

@@ -17,7 +17,6 @@ export async function GET(request) {
       return errorResponse('Unauthorized', 401);
     }
 
-    console.log('Admin stats requested', { userId: authUser.id });
 
     await connectToDatabase();
 
@@ -25,7 +24,7 @@ export async function GET(request) {
       totalProducts,
       totalOrders,
       totalCustomers,
-      orders,
+      revenueResult,
       lowStockProductsRaw,
       categoryGroups,
       topProductsRaw,
@@ -33,7 +32,10 @@ export async function GET(request) {
       Product.countDocuments(),
       Order.countDocuments(),
       User.countDocuments({ role: 'user' }),
-      Order.find({}, 'totalAmount').lean(),
+      // Use $sum aggregation — never load every order document into memory
+      Order.aggregate([
+        { $group: { _id: null, totalRevenue: { $sum: '$totalAmount' } } }
+      ]),
       Product.find({ stock: { $lt: 10 } }, 'name stock')
         .sort({ stock: 1 })
         .limit(20)
@@ -71,7 +73,7 @@ export async function GET(request) {
       revenue: p.totalRevenue || 0,
     }));
 
-    const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);
+    const totalRevenue = revenueResult[0]?.totalRevenue || 0;
 
     const categoryDistribution = {};
     for (const g of categoryGroups) {
