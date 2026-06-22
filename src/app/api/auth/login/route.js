@@ -4,14 +4,18 @@ import { signToken } from '@/lib/auth';
 import { successResponse, errorResponse } from '@/lib/apiResponse';
 import { checkRateLimit } from '@/lib/rateLimit';
 
+import { normalizePhone } from '@/lib/phone';
+
 const loginSchema = z.object({
-  phone: z.string().min(1, 'Phone number is required'),
+  phone: z.string().regex(/^\+?91?[6-9]\d{9}$/, 'Enter a valid 10-digit Indian mobile number'),
   password: z.string().min(1, 'Password is required'),
 });
 
 export async function POST(request) {
   try {
-    const ip = request.headers.get('x-forwarded-for') || 'unknown';
+    // Extract the real client IP — take first value only to prevent x-forwarded-for spoofing
+    const rawIp = request.headers.get('x-forwarded-for') || 'unknown';
+    const ip = rawIp.split(',')[0].trim();
     if (!(await checkRateLimit(ip, 5, 60000))) { // Max 5 login attempts per minute per IP
       return errorResponse('Too many login attempts', 429);
     }
@@ -26,14 +30,9 @@ export async function POST(request) {
     const { phone, password } = parsed.data;
 
     // Format phone number to E.164 for database query
-    let targetPhone = phone.trim();
-    if (!targetPhone.startsWith('+')) {
-      const digits = targetPhone.replace(/\D/g, '');
-      if (digits.length === 10) {
-        targetPhone = `+91${digits}`;
-      } else if (digits.startsWith('91') && digits.length === 12) {
-        targetPhone = `+${digits}`;
-      }
+    const targetPhone = normalizePhone(phone);
+    if (!targetPhone) {
+      return errorResponse('Enter a valid 10-digit Indian mobile number', 400);
     }
 
     // Connect to database and look up user strictly by phone number

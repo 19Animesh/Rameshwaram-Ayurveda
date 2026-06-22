@@ -11,7 +11,7 @@ export async function GET(request) {
   try {
     const authUser = getUserFromRequest(request);
     if (!authUser) {
-      return NextResponse.json({ user: null });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     await connectToDatabase();
@@ -61,9 +61,12 @@ export async function PUT(request) {
       }
     }
 
+    const phoneChanged = phone && phone !== authUser.phone;
     const dataToUpdate = {
       name: name.trim(),
       ...(phone !== undefined ? { phone: phone.trim() || null } : {}),
+      // If phone number changed, mark as unverified — user must re-verify via OTP
+      ...(phoneChanged ? { isPhoneVerified: false } : {}),
     };
     
     const updatedRaw = await User.findByIdAndUpdate(authUser.userId, dataToUpdate, { new: true }).lean();

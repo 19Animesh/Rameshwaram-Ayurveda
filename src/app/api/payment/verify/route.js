@@ -93,7 +93,7 @@ export async function POST(request) {
       .digest('hex');
 
     if (generatedSignature !== razorpay_signature) {
-      console.warn('[payment/verify] SIGNATURE MISMATCH — possible fraud attempt', {
+      console.error('[payment/verify] SIGNATURE MISMATCH — possible fraud attempt', {
         ip,
         razorpay_order_id,
         razorpay_payment_id,
@@ -117,6 +117,26 @@ export async function POST(request) {
     }
 
     // ── 8. Recalculate amount server-side (do NOT trust frontend total) ────
+    // Validate items: ObjectId format + quantity bounds before touching the DB
+    const OBJECTID_RE = /^[a-fA-F0-9]{24}$/;
+    const MAX_QTY_PER_ITEM = 99;
+
+    if (items.length > 50) {
+      return NextResponse.json({ error: 'Too many items in order' }, { status: 400 });
+    }
+
+    for (const item of items) {
+      if (!item.productId || typeof item.productId !== 'string' || !OBJECTID_RE.test(item.productId)) {
+        return NextResponse.json({ error: 'Each item must have a valid productId' }, { status: 400 });
+      }
+      if (!Number.isInteger(item.quantity) || item.quantity < 1 || item.quantity > MAX_QTY_PER_ITEM) {
+        return NextResponse.json(
+          { error: `Quantity for product ${item.productId} must be between 1 and ${MAX_QTY_PER_ITEM}` },
+          { status: 400 }
+        );
+      }
+    }
+
     const productIds = items.map(i => i.productId);
     const products   = await Product.find({ _id: { $in: productIds } }).select('_id name price stock').lean();
 
@@ -180,11 +200,11 @@ export async function POST(request) {
         userId:        authUser.userId || authUser.id,
         status:        'confirmed',
         totalAmount,
-        paymentMethod: paymentMethod || 'razorpay',
+        // Always set server-side — never trust paymentMethod from client body
+        paymentMethod: 'razorpay',
         paymentId:     razorpay_payment_id,
         razorpayOrderId: razorpay_order_id,
-        shippingAddr:  JSON.stringify(address), // preserving for fallback
-        shippingAddress: address, // structured field
+        shippingAddress: address,
         items:         verifiedItems,
       }], { session });
       
@@ -213,10 +233,9 @@ export async function POST(request) {
           userId:        authUser.userId || authUser.id,
           status:        'confirmed',
           totalAmount,
-          paymentMethod: paymentMethod || 'razorpay',
+          paymentMethod: 'razorpay',
           paymentId:     razorpay_payment_id,
           razorpayOrderId: razorpay_order_id,
-          shippingAddr:  JSON.stringify(address),
           shippingAddress: address,
           items:         verifiedItems,
         });
@@ -253,6 +272,13 @@ export async function POST(request) {
     }, { status: 201 });
 
   } catch (error) {
+    // Unique index violation on paymentId = duplicate payment attempt (atomic guard)
+    if (error.code === 11000 && error.keyPattern?.paymentId) {
+      return NextResponse.json(
+        { error: 'This payment has already been processed' },
+        { status: 409 }
+      );
+    }
     console.error('[payment/verify] Unexpected error:', error);
     return NextResponse.json({ error: 'Payment verification failed due to server error' }, { status: 500 });
   }

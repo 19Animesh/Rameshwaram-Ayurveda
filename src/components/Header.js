@@ -71,7 +71,7 @@ export default function Header() {
     <header className="header">
       <div className="header-inner">
         <Link href="/" className="logo">
-          <Image src="/logo.png" alt="Rameshwaram Ayurveda" width={80} height={80} style={{ objectFit: 'contain' }} />
+          <Image src="/logo.png" alt="Rameshwaram Ayurveda" width={80} height={80} style={{ objectFit: 'contain' }} priority />
         </Link>
 
         <form className="header-search" ref={searchRef} onSubmit={handleSearch}>

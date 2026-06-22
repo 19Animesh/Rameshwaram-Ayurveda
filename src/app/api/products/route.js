@@ -17,9 +17,12 @@ export async function GET(request) {
     const pageParam = parseInt(searchParams.get('page'));
     const limitParam = parseInt(searchParams.get('limit'));
 
+    const page = !isNaN(pageParam) && pageParam > 0 ? pageParam : 1;
+    const limit = !isNaN(limitParam) && limitParam > 0 ? Math.min(limitParam, 100) : 12;
+
     const productsResult = await getProducts({
-      page: !isNaN(pageParam) && pageParam > 0 ? pageParam : 1,
-      limit: !isNaN(limitParam) && limitParam > 0 ? limitParam : 12,
+      page,
+      limit,
       search: searchParams.get('search') || undefined,
       category: searchParams.get('category') || undefined,
       brand: searchParams.get('brand') || undefined,
@@ -55,8 +58,6 @@ export async function POST(request) {
       console.warn("⚠️ Unauthorized attempt:", authUser);
       return errorResponse('Unauthorized', 401);
     }
-
-    console.log("🛠 Admin creating product:", authUser);
 
     const data = await request.json();
 
@@ -117,9 +118,9 @@ export async function POST(request) {
       brandName: data.brandName || 'Store Brand',
       category: data.category || 'general-wellness',
       description: data.description || '',
-      price: data.price || 0,
-      originalPrice: data.originalPrice || data.price || 0,
-      stock: data.stock || 50,
+      price,                                                 // validated Number
+      originalPrice: Number(data.originalPrice) || price,
+      stock,                                                 // validated Number
       expiryDate: data.expiryDate || new Date(Date.now() + 31536000000).toISOString(),
       dosage: data.dosage || '',
       usage: data.usage || '',
@@ -130,8 +131,6 @@ export async function POST(request) {
       imagePublicId,
       variants: []
     });
-
-    console.log("✅ Product created:", newProduct?.id);
 
     return successResponse({ product: newProduct }, 201);
 

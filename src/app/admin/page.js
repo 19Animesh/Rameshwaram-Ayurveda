@@ -34,6 +34,7 @@ export default function AdminPage() {
   const [inlineStock, setInlineStock] = useState({});
   const [savingStock, setSavingStock] = useState(null);
   const [toast, setToast] = useState('');
+  const [statsError, setStatsError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [productPage, setProductPage] = useState(1);
   const [productTotal, setProductTotal] = useState(0);
@@ -42,6 +43,10 @@ export default function AdminPage() {
   // ── Order detail popup ──
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showOrderModal, setShowOrderModal] = useState(false);
+  // ── Orders pagination ──
+  const [orderPage, setOrderPage] = useState(1);
+  const [orderTotal, setOrderTotal] = useState(0);
+  const ORDERS_PER_PAGE = 25;
 
   const openOrderDetail = (order) => {
     setSelectedOrder(order);
@@ -71,24 +76,45 @@ export default function AdminPage() {
 
   const loadData = async () => {
     setLoading(true);
+    setStatsError('');
     try {
       const [statsRes, ordersRes] = await Promise.all([
         fetch('/api/admin/stats', { headers: authHeaders() }),
-        fetch('/api/orders', { headers: authHeaders() }),
+        fetch(`/api/orders?page=1&limit=${ORDERS_PER_PAGE}`, { headers: authHeaders() }),
       ]);
       const [statsFull, ordersFull] = await Promise.all([
         statsRes.json(), ordersRes.json(),
       ]);
+      if (!statsRes.ok) throw new Error(statsFull.error || 'Failed to load stats');
       const statsData = statsFull.data || {};
       const ordersData = ordersFull.data || {};
       setStats(statsData);
-      // Support both legacy array and new paginated { orders, total } shape
       const rawOrders = ordersData.orders || (Array.isArray(ordersData) ? ordersData : []);
       setOrders(rawOrders);
-    } catch (err) { console.error(err); }
+      setOrderTotal(ordersData.total || rawOrders.length);
+    } catch (err) {
+      console.error('Admin loadData error:', err);
+      setStatsError(err.message || 'Failed to load dashboard data. Please refresh.');
+    }
     // Load first page of products
     await loadProducts(1, '');
     setLoading(false);
+  };
+
+  const loadOrders = async (page = 1) => {
+    try {
+      const res = await fetch(`/api/orders?page=${page}&limit=${ORDERS_PER_PAGE}`, { headers: authHeaders() });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed to load orders');
+      const data = json.data || {};
+      const rawOrders = data.orders || (Array.isArray(data) ? data : []);
+      setOrders(rawOrders);
+      setOrderTotal(data.total || rawOrders.length);
+      setOrderPage(page);
+    } catch (err) {
+      console.error('loadOrders error:', err);
+      showToast('❌ Failed to load orders: ' + err.message);
+    }
   };
 
   const loadProducts = async (page = 1, search = '') => {
@@ -218,8 +244,7 @@ export default function AdminPage() {
 
     } catch (err) { 
       console.error(err);
-      alert('Edit Error: ' + err.message);
-      showToast('❌ Failed to save product');
+      showToast('❌ Error: ' + err.message);
     }
   };
 
@@ -359,54 +384,67 @@ export default function AdminPage() {
         {loading ? <div className="loading-spinner"></div> : (
           <>
             {/* ── Dashboard ── */}
-            {activeTab === 'dashboard' && stats && (
+            {activeTab === 'dashboard' && (
               <div className="fade-in">
                 <h2 style={{ marginBottom: 'var(--space-lg)' }}>📊 Dashboard Overview</h2>
-                <div className="stats-grid">
-                  <div className="stat-card">
-                    <div className="stat-icon" style={{ background: 'var(--green-100)' }}>💰</div>
-                    <div className="stat-value">{formatPrice(stats.stats?.totalRevenue || 0)}</div>
-                    <div className="stat-label">Total Revenue</div>
+                {statsError && (
+                  <div style={{
+                    background: '#fee2e2', color: '#b91c1c', padding: '12px 16px',
+                    borderRadius: 'var(--radius-md)', marginBottom: 'var(--space-lg)',
+                    fontSize: 14, fontWeight: 500,
+                  }}>
+                    ⚠️ {statsError}
                   </div>
-                  <div className="stat-card">
-                    <div className="stat-icon" style={{ background: 'var(--gold-100)' }}>📦</div>
-                    <div className="stat-value">{stats.stats?.totalOrders || 0}</div>
-                    <div className="stat-label">Total Orders</div>
-                  </div>
-                  <div className="stat-card">
-                    <div className="stat-icon" style={{ background: '#e6f0fd' }}>💊</div>
-                    <div className="stat-value">{stats.stats?.totalProducts || 0}</div>
-                    <div className="stat-label">Products</div>
-                  </div>
-                  <div className="stat-card">
-                    <div className="stat-icon" style={{ background: '#fde8e6' }}>👥</div>
-                    <div className="stat-value">{stats.stats?.totalCustomers || 0}</div>
-                    <div className="stat-label">Customers</div>
-                  </div>
-                </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-lg)', marginTop: 'var(--space-lg)' }}>
-                  <div className="card" style={{ padding: 'var(--space-lg)' }}>
-                    <h3 style={{ marginBottom: 'var(--space-md)' }}>⚠️ Low Stock Alert</h3>
-                    {stats.lowStockProducts?.length === 0
-                      ? <p style={{ color: 'var(--gray-500)', fontSize: 14 }}>All products well stocked! 🎉</p>
-                      : stats.lowStockProducts?.map(p => (
-                        <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--gray-100)', fontSize: 14 }}>
-                          <span>{p.name}</span>
-                          <span className="badge badge-red">{p.stock} left</span>
-                        </div>
-                      ))}
-                  </div>
-                  <div className="card" style={{ padding: 'var(--space-lg)' }}>
-                    <h3 style={{ marginBottom: 'var(--space-md)' }}>📂 Categories</h3>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                      {stats.categoryDistribution && Object.entries(stats.categoryDistribution).map(([cat, count]) => (
-                        <span key={cat} className="badge badge-green" style={{ padding: '6px 14px' }}>
-                          {cat.replace('-', ' ')}: {count}
-                        </span>
-                      ))}
+                )}
+                {stats && (
+                  <>
+                  <div className="stats-grid">
+                    <div className="stat-card">
+                      <div className="stat-icon" style={{ background: 'var(--green-100)' }}>💰</div>
+                      <div className="stat-value">{formatPrice(stats.stats?.totalRevenue || 0)}</div>
+                      <div className="stat-label">Total Revenue</div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-icon" style={{ background: 'var(--gold-100)' }}>📦</div>
+                      <div className="stat-value">{stats.stats?.totalOrders || 0}</div>
+                      <div className="stat-label">Total Orders</div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-icon" style={{ background: '#e6f0fd' }}>💊</div>
+                      <div className="stat-value">{stats.stats?.totalProducts || 0}</div>
+                      <div className="stat-label">Products</div>
+                    </div>
+                    <div className="stat-card">
+                      <div className="stat-icon" style={{ background: '#fde8e6' }}>👥</div>
+                      <div className="stat-value">{stats.stats?.totalCustomers || 0}</div>
+                      <div className="stat-label">Customers</div>
                     </div>
                   </div>
-                </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-lg)', marginTop: 'var(--space-lg)' }}>
+                    <div className="card" style={{ padding: 'var(--space-lg)' }}>
+                      <h3 style={{ marginBottom: 'var(--space-md)' }}>⚠️ Low Stock Alert</h3>
+                      {stats.lowStockProducts?.length === 0
+                        ? <p style={{ color: 'var(--gray-500)', fontSize: 14 }}>All products well stocked! 🎉</p>
+                        : stats.lowStockProducts?.map(p => (
+                          <div key={p.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--gray-100)', fontSize: 14 }}>
+                            <span>{p.name}</span>
+                            <span className="badge badge-red">{p.stock} left</span>
+                          </div>
+                        ))}
+                    </div>
+                    <div className="card" style={{ padding: 'var(--space-lg)' }}>
+                      <h3 style={{ marginBottom: 'var(--space-md)' }}>📂 Categories</h3>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                        {stats.categoryDistribution && Object.entries(stats.categoryDistribution).map(([cat, count]) => (
+                          <span key={cat} className="badge badge-green" style={{ padding: '6px 14px' }}>
+                            {cat.replace('-', ' ')}: {count}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  </>
+                )}
               </div>
             )}
 
@@ -464,7 +502,9 @@ export default function AdminPage() {
             {/* ── Orders ── */}
             {activeTab === 'orders' && (
               <div className="fade-in">
-                <h2 style={{ marginBottom: 'var(--space-lg)' }}>📦 All Orders ({orders.length})</h2>
+                <h2 style={{ marginBottom: 'var(--space-lg)' }}>
+                  📦 All Orders ({orderTotal} total{orderTotal > ORDERS_PER_PAGE ? `, showing page ${orderPage}` : ''})
+                </h2>
                 {orders.length === 0 ? (
                   <div className="empty-state">
                     <span className="empty-icon">📦</span>
@@ -472,11 +512,35 @@ export default function AdminPage() {
                     <p>Orders will appear here when customers place them.</p>
                   </div>
                 ) : (
-                  <OrdersTable 
-                    orders={orders}
-                    openOrderDetail={openOrderDetail}
-                    handleOrderStatus={handleOrderStatus}
-                  />
+                  <>
+                    <OrdersTable 
+                      orders={orders}
+                      openOrderDetail={openOrderDetail}
+                      handleOrderStatus={handleOrderStatus}
+                    />
+                    {/* Orders Pagination */}
+                    {Math.ceil(orderTotal / ORDERS_PER_PAGE) > 1 && (
+                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 12, marginTop: 20, padding: '12px 0' }}>
+                        <button
+                          onClick={() => loadOrders(orderPage - 1)}
+                          disabled={orderPage === 1}
+                          style={{ padding: '6px 16px', borderRadius: 8, border: '1px solid #ddd', background: orderPage === 1 ? '#f0f0f0' : '#1B4332', color: orderPage === 1 ? '#999' : '#fff', cursor: orderPage === 1 ? 'not-allowed' : 'pointer', fontWeight: 600 }}
+                        >
+                          ← Prev
+                        </button>
+                        <span style={{ fontSize: 14, color: 'var(--gray-600)' }}>
+                          Page {orderPage} of {Math.ceil(orderTotal / ORDERS_PER_PAGE)}
+                        </span>
+                        <button
+                          onClick={() => loadOrders(orderPage + 1)}
+                          disabled={orderPage >= Math.ceil(orderTotal / ORDERS_PER_PAGE)}
+                          style={{ padding: '6px 16px', borderRadius: 8, border: '1px solid #ddd', background: orderPage >= Math.ceil(orderTotal / ORDERS_PER_PAGE) ? '#f0f0f0' : '#1B4332', color: orderPage >= Math.ceil(orderTotal / ORDERS_PER_PAGE) ? '#999' : '#fff', cursor: orderPage >= Math.ceil(orderTotal / ORDERS_PER_PAGE) ? 'not-allowed' : 'pointer', fontWeight: 600 }}
+                        >
+                          Next →
+                        </button>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             )}

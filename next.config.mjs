@@ -29,12 +29,19 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' checkout.razorpay.com www.gstatic.com",
+              // unsafe-eval required by Razorpay checkout SDK (uses eval internally)
+              // va.vercel-scripts.com required for Vercel Analytics
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' checkout.razorpay.com www.gstatic.com va.vercel-scripts.com",
               "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
               "font-src 'self' fonts.gstatic.com",
-              "img-src 'self' data: res.cloudinary.com",
-              "connect-src 'self' api.razorpay.com api.postalpincode.in",
-              "frame-src 'none'",
+              // blob: needed for image upload previews (URL.createObjectURL)
+              "img-src 'self' data: blob: res.cloudinary.com",
+              // *.razorpay.com covers lumberjack, checkout, api subdomains
+              // Firebase identity toolkit needed for phone OTP
+              // Vercel Analytics and Insights for performance tracking
+              "connect-src 'self' *.razorpay.com api.postalpincode.in *.googleapis.com *.firebase.com *.firebaseio.com vitals.vercel-insights.com",
+              // Razorpay payment modal renders inside an iframe
+              "frame-src 'self' *.razorpay.com",
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",

@@ -6,6 +6,7 @@ import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 import { useAuth } from '@/context/AuthContext';
 import { useCart } from '@/context/CartContext';
+import { normalizePhone } from '@/lib/phone';
 
 export default function LoginPage() {
   const [phone, setPhone] = useState('');
@@ -51,17 +52,9 @@ export default function LoginPage() {
     setLoading(true);
     try {
       // Clean and validate phone number
-      const phoneInput = phone.trim();
-      let targetPhone = phoneInput;
-      if (!phoneInput.startsWith('+')) {
-        const digits = phoneInput.replace(/\D/g, '');
-        if (digits.length === 10) {
-          targetPhone = `+91${digits}`;
-        } else if (digits.startsWith('91') && digits.length === 12) {
-          targetPhone = `+${digits}`;
-        } else {
-          throw new Error('Please enter a valid 10-digit mobile number.');
-        }
+      const targetPhone = normalizePhone(phone);
+      if (!targetPhone) {
+        throw new Error('Please enter a valid 10-digit mobile number.');
       }
 
       const res = await login(targetPhone, password);
@@ -72,18 +65,9 @@ export default function LoginPage() {
         }
 
         const otpPhone = res.phone || targetPhone;
-        
-        // Format to E.164 format
-        let formatted = otpPhone.trim();
-        if (!formatted.startsWith('+')) {
-          const digits = formatted.replace(/\D/g, '');
-          if (digits.length === 10) {
-            formatted = `+91${digits}`;
-          } else if (digits.startsWith('91') && digits.length === 12) {
-            formatted = `+${digits}`;
-          } else {
-            formatted = `+${digits}`;
-          }
+        const formatted = normalizePhone(otpPhone);
+        if (!formatted) {
+          throw new Error('Invalid phone format for OTP.');
         }
 
         setVerificationPhone(formatted);
@@ -129,14 +113,9 @@ export default function LoginPage() {
 
       // 2. Submit token to verify-otp server API
       // Ensure we pass the clean E.164 phone number as identifier
-      let targetPhone = phone.trim();
-      if (!targetPhone.startsWith('+')) {
-        const digits = targetPhone.replace(/\D/g, '');
-        if (digits.length === 10) {
-          targetPhone = `+91${digits}`;
-        } else if (digits.startsWith('91') && digits.length === 12) {
-          targetPhone = `+${digits}`;
-        }
+      const targetPhone = normalizePhone(phone);
+      if (!targetPhone) {
+        throw new Error('Valid phone number is required.');
       }
 
       await verifyOtp(targetPhone, firebaseToken);
@@ -204,6 +183,11 @@ export default function LoginPage() {
 
             <div className="auth-footer">
               Don't have an account? <Link href="/auth/register">Sign Up</Link>
+            </div>
+            <div className="auth-footer" style={{ marginTop: '0.5rem' }}>
+              <Link href="/auth/forgot-password" style={{ color: 'var(--gray-500)', fontSize: '0.9rem' }}>
+                Forgot Password?
+              </Link>
             </div>
           </>
         ) : (

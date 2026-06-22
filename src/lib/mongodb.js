@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import '@/lib/env';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
@@ -29,7 +30,7 @@ async function connectToDatabase() {
     cached.promise = mongoose
       .connect(MONGODB_URI, opts)
       .then((mongoose) => {
-        console.log('✅ MongoDB connected successfully');
+        console.info('✅ MongoDB connected successfully');
         return mongoose;
       })
       .catch((err) => {

@@ -5,18 +5,14 @@ import { getFirebaseAdmin } from '@/lib/firebaseAdmin';
 import { signToken } from '@/lib/auth';
 import { successResponse, errorResponse } from '@/lib/apiResponse';
 import { checkRateLimit } from '@/lib/rateLimit';
-
-function phoneNumbersMatch(inputPhone, firebasePhone) {
-  if (!inputPhone || !firebasePhone) return false;
-  const inputDigits = inputPhone.replace(/\D/g, '');
-  const firebaseDigits = firebasePhone.replace(/\D/g, '');
-  return firebaseDigits.endsWith(inputDigits) || inputDigits.endsWith(firebaseDigits);
-}
+import { normalizePhone, phoneNumbersMatch } from '@/lib/phone';
 
 export async function POST(request) {
   try {
     // Rate limit by IP: 5 registration attempts per minute per IP
-    const ip = request.headers.get('x-forwarded-for') || 'unknown';
+    // Extract first IP only to prevent x-forwarded-for spoofing
+    const rawIp = request.headers.get('x-forwarded-for') || 'unknown';
+    const ip = rawIp.split(',')[0].trim();
     if (!(await checkRateLimit(ip, 5, 60000, 'register-ip'))) {
       return errorResponse('Too many registration attempts. Please try again later.', 429);
     }
@@ -27,9 +23,13 @@ export async function POST(request) {
       return errorResponse('Name, phone, password, and firebaseToken are required', 400);
     }
 
+    const targetPhone = normalizePhone(phone);
+    if (!targetPhone) {
+      return errorResponse('Please enter a valid 10-digit mobile number.', 400);
+    }
+
     // Rate limit by identifier: 3 registration attempts per minute per phone
-    const identifier = phone;
-    if (!(await checkRateLimit(identifier, 3, 60000, 'register-id'))) {
+    if (!(await checkRateLimit(targetPhone, 3, 60000, 'register-id'))) {
       return errorResponse('Too many registration attempts for this phone number. Please try again later.', 429);
     }
 
@@ -45,7 +45,7 @@ export async function POST(request) {
     }
 
     // Ensure token phone matches the registration phone
-    if (!phoneNumbersMatch(phone, firebasePhone)) {
+    if (!phoneNumbersMatch(targetPhone, firebasePhone)) {
       return errorResponse('Verified phone number does not match the provided phone number', 400);
     }
 
@@ -54,7 +54,7 @@ export async function POST(request) {
     
     const query = [];
     if (email) query.push({ email });
-    query.push({ phone });
+    query.push({ phone: targetPhone });
     
     const existingUser = await User.findOne({
       $or: query
@@ -72,7 +72,7 @@ export async function POST(request) {
     const newUser = await User.create({
       name,
       ...(email ? { email } : {}),
-      phone,
+      phone: targetPhone,
       passwordHash,
       isPhoneVerified: true // Already verified via Firebase on client
     });

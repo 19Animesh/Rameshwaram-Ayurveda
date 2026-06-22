@@ -25,7 +25,7 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
     const pincode = searchParams.get('pincode');
 
-    if (!pincode || pincode.length !== 6 || isNaN(pincode)) {
+    if (!pincode || !/^\d{6}$/.test(pincode)) {
       return NextResponse.json({ error: 'Valid 6-digit Pincode is required' }, { status: 400 });
     }
 

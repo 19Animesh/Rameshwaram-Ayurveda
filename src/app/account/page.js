@@ -61,6 +61,7 @@ export default function AccountPage() {
   const [activeTab, setActiveTab] = useState('profile');
   const [orders, setOrders] = useState([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
+  const [ordersError, setOrdersError] = useState('');
 
   // Profile edit state
   const [editing, setEditing] = useState(false);
@@ -69,6 +70,7 @@ export default function AccountPage() {
   const [saveError, setSaveError] = useState('');
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [addresses, setAddresses] = useState(null); // null = not yet loaded
+  const [addressesLoading, setAddressesLoading] = useState(false);
 
   // Init form from user
   useEffect(() => {
@@ -80,13 +82,16 @@ export default function AccountPage() {
     const userId = user?.id || user?._id;
     if (userId && activeTab === 'orders') {
       setOrdersLoading(true);
+      setOrdersError('');
       fetchOrders(userId)
         .then(res => {
           const payload = res.data || res;
           // Support both paginated { orders, total } and legacy array shape
           setOrders(payload.orders || (Array.isArray(payload) ? payload : []));
         })
-        .catch(() => {})
+        .catch((err) => {
+          setOrdersError(err.message || 'Failed to load orders.');
+        })
         .finally(() => setOrdersLoading(false));
     }
   }, [user, activeTab]);
@@ -94,7 +99,8 @@ export default function AccountPage() {
   // Load addresses from DB when Addresses tab opens
   useEffect(() => {
     const userId = user?.id || user?._id;
-    if (userId && activeTab === 'addresses' && addresses === null) {
+    if (userId && activeTab === 'addresses' && addresses === null && !addressesLoading) {
+      setAddressesLoading(true);
       // Try the Address collection first; fall back to extracting from past orders
       fetch('/api/auth/profile')
         .then(r => r.json())
@@ -103,22 +109,40 @@ export default function AccountPage() {
            const savedAddresses = payload.user?.addresses || [];
            if (savedAddresses.length > 0) {
              setAddresses(savedAddresses);
+             setAddressesLoading(false);
            } else {
-             // Derive unique shipping addresses from past orders as fallback
-             const orderAddrs = orders
-               .map(o => o.address)
-               .filter(a => a && a.fullName && a.street)
-               .reduce((unique, addr) => {
-                 const key = `${addr.street}|${addr.pincode}`.toLowerCase();
-                 if (!unique.has(key)) unique.set(key, addr);
-                 return unique;
-               }, new Map());
-             setAddresses(Array.from(orderAddrs.values()));
+             // Resolve race condition: if orders are already in state, use them;
+             // otherwise, fetch them directly from the API to extract addresses
+             const getOrdersPromise = orders.length > 0
+               ? Promise.resolve(orders)
+               : fetchOrders(userId)
+                   .then(resOrders => {
+                     const payloadOrders = resOrders.data || resOrders;
+                     return payloadOrders.orders || (Array.isArray(payloadOrders) ? payloadOrders : []);
+                   })
+                   .catch(() => []);
+
+             getOrdersPromise.then(resolvedOrders => {
+               // Derive unique shipping addresses from past orders as fallback
+               const orderAddrs = resolvedOrders
+                 .map(o => o.address)
+                 .filter(a => a && a.fullName && a.street)
+                 .reduce((unique, addr) => {
+                   const key = `${addr.street}|${addr.pincode}`.toLowerCase();
+                   if (!unique.has(key)) unique.set(key, addr);
+                   return unique;
+                 }, new Map());
+               setAddresses(Array.from(orderAddrs.values()));
+               setAddressesLoading(false);
+             });
            }
         })
-        .catch(() => setAddresses([]));
+        .catch(() => {
+          setAddresses([]);
+          setAddressesLoading(false);
+        });
     }
-  }, [user, activeTab, addresses, orders]);
+  }, [user, activeTab, addresses, orders, addressesLoading]);
 
   if (!user) {
     return (
@@ -278,6 +302,15 @@ export default function AccountPage() {
             {activeTab === 'orders' && (
               <div className="fade-in">
                 <h2 style={{ marginBottom: 'var(--space-lg)' }}>My Orders</h2>
+                {ordersError && (
+                  <div style={{
+                    background: '#fde8e6', color: 'var(--danger)',
+                    padding: '12px 16px', borderRadius: 'var(--radius-md)',
+                    marginBottom: 'var(--space-md)', fontWeight: 500, fontSize: 14
+                  }}>
+                    ⚠️ {ordersError}
+                  </div>
+                )}
                 {ordersLoading ? (
                   <div className="loading-spinner" />
                 ) : orders.length === 0 ? (
@@ -326,7 +359,7 @@ export default function AccountPage() {
             {activeTab === 'addresses' && (
               <div className="fade-in">
                 <h2 style={{ marginBottom: 'var(--space-lg)' }}>Saved Addresses</h2>
-                {addresses === null ? (
+                {addresses === null || addressesLoading ? (
                   <div className="loading-spinner" />
                 ) : addresses.length > 0 ? (
                   addresses.map(addr => (

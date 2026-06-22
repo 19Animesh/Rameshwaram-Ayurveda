@@ -1,9 +1,15 @@
-'use client';
-import { useState, useEffect } from 'react';
+/**
+ * Home page — Server Component
+ * Fetches featured products and categories at request time so that
+ * Googlebot sees fully-rendered HTML content, not a blank shell.
+ */
 import Link from 'next/link';
-import ProductCard from '@/components/ProductCard';
+import { getProducts } from '@/services/productService';
+import connectToDatabase from '@/lib/mongodb';
+import Product from '@/models/Product';
+import HomeFeatured from './HomeFeatured';
 
-// Default fallback for emojis if no dynamic matching works
+// Category emoji mapping
 const categoryEmojis = {
   'immunity': '🛡️',
   'digestive-health': '🫄',
@@ -15,7 +21,7 @@ const categoryEmojis = {
   'respiratory-care': '🫁',
   'hair-care': '💇',
   'eye-health': '👁️',
-  'general-wellness': '🌱'
+  'general-wellness': '🌱',
 };
 
 const SYMPTOMS = [
@@ -29,30 +35,42 @@ const SYMPTOMS = [
   { name: 'Memory & Focus', emoji: '🎯', search: 'brain brahmi' },
 ];
 
-export default function HomePage() {
-  const [featured, setFeatured] = useState([]);
-  const [loading, setLoading] = useState(true);
+async function getFeaturedProducts() {
+  try {
+    const result = await getProducts({ featured: true, limit: 8 });
+    return result.products || [];
+  } catch {
+    return [];
+  }
+}
 
-  const [dbCategories, setDbCategories] = useState([]);
+async function getCategories() {
+  try {
+    await connectToDatabase();
+    const rawCategories = await Product.distinct('category');
+    const validCategories = rawCategories.filter(Boolean).sort();
+    // Deduplicate by generated id slug
+    const seen = new Set();
+    const categories = [];
+    for (const name of validCategories) {
+      const id = name.toLowerCase().replace(/\s+/g, '-');
+      if (!seen.has(id)) {
+        seen.add(id);
+        categories.push({ id, name });
+      }
+    }
+    return categories;
+  } catch {
+    return [];
+  }
+}
 
-  useEffect(() => {
-    // Fetch Featured Products
-    fetch('/api/products?featured=true')
-      .then(res => res.json())
-      .then(result => { 
-        setFeatured(result.data?.products || []); 
-        setLoading(false); 
-      })
-      .catch(() => setLoading(false));
-
-    // Fetch Dynamic Categories
-    fetch('/api/products/filters')
-      .then(res => res.json())
-      .then(result => {
-        if (result.data) setDbCategories(result.data.categories || []);
-      })
-      .catch();
-  }, []);
+export default async function HomePage() {
+  // Parallel server-side data fetch — fully rendered HTML for SEO
+  const [featured, dbCategories] = await Promise.all([
+    getFeaturedProducts(),
+    getCategories(),
+  ]);
 
   return (
     <>
@@ -65,7 +83,7 @@ export default function HomePage() {
               <span className="highlight">Modern Wellness</span>
             </h1>
             <p>
-              Discover authentic Ayurvedic medicines from India's most trusted brands. 
+              Discover authentic Ayurvedic medicines from India&apos;s most trusted brands.
               Boost immunity, improve digestion, and achieve holistic health naturally.
             </p>
             <div className="hero-actions">
@@ -93,8 +111,7 @@ export default function HomePage() {
         </div>
       </section>
 
-
-      {/* Browse by Category */}
+      {/* Browse by Category — server-rendered for SEO */}
       <section className="section">
         <div className="container">
           <div className="section-header">
@@ -109,37 +126,17 @@ export default function HomePage() {
                 <div className="cat-name">{cat.name}</div>
               </Link>
             ))}
-            {dbCategories.length === 0 && <span style={{color: "gray"}}>Loading live categories...</span>}
+            {dbCategories.length === 0 && (
+              <span style={{ color: 'gray' }}>No categories available.</span>
+            )}
           </div>
         </div>
       </section>
 
-      {/* Featured Products */}
-      <section className="section" style={{ background: 'var(--green-50)' }}>
-        <div className="container">
-          <div className="section-header">
-            <h2>Featured Products</h2>
-            <p>Hand-picked Ayurvedic medicines recommended by our experts</p>
-            <div className="section-line"></div>
-          </div>
-          {loading ? (
-            <div className="loading-spinner"></div>
-          ) : (
-            <div className="products-grid">
-              {featured.map(product => (
-                <ProductCard key={product.id} product={product} />
-              ))}
-            </div>
-          )}
-          <div style={{ textAlign: 'center', marginTop: 'var(--space-xl)' }}>
-            <Link href="/products" className="btn btn-primary btn-lg">
-              View All Products →
-            </Link>
-          </div>
-        </div>
-      </section>
+      {/* Featured Products — client component handles add-to-cart interactivity */}
+      <HomeFeatured featured={featured} />
 
-      {/* Recommended by Symptoms */}
+      {/* Recommended by Symptoms — static, server-rendered */}
       <section className="section">
         <div className="container">
           <div className="section-header">

@@ -5,7 +5,7 @@ const orderItemSchema = new mongoose.Schema({
   variantId: { type: mongoose.Schema.Types.ObjectId, default: null },
   name:      { type: String, required: true },
   price:     { type: Number, required: true },
-  quantity:  { type: Number, required: true },
+  quantity:  { type: Number, required: true, min: 1 },
 });
 
 const statusHistoryEntrySchema = new mongoose.Schema({
@@ -17,26 +17,31 @@ const statusHistoryEntrySchema = new mongoose.Schema({
 
 const orderSchema = new mongoose.Schema({
   userId:          { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-  status:          { type: String, default: 'confirmed' },
+  // Enum-constrained status prevents arbitrary strings from being stored
+  status: {
+    type: String,
+    enum: ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'],
+    default: 'confirmed',
+  },
   totalAmount:     { type: Number, required: true },
-  paymentMethod:   { type: String, required: true },
+  // paymentMethod is always set server-side — never trust client value
+  paymentMethod:   { type: String, enum: ['razorpay', 'cod', 'bank_transfer'], required: true },
 
-  // Razorpay identifiers — indexed for fast duplicate-payment lookups
-  paymentId:       { type: String, default: null, index: true },  // razorpay_payment_id
-  razorpayOrderId: { type: String, default: null, index: true },  // razorpay_order_id
+  // Razorpay identifiers — unique sparse index enforces atomic duplicate-payment protection at DB level
+  paymentId:       { type: String, default: null, index: true, unique: true, sparse: true }, // razorpay_payment_id
+  razorpayOrderId: { type: String, default: null, index: true },                             // razorpay_order_id
 
-  shippingAddr: { type: String }, // Old JSON snapshot of address (fallback)
+  // Structured shipping address (single source of truth — legacy shippingAddr removed)
   shippingAddress: {
     fullName: { type: String },
-    phone: { type: String },
-    street: { type: String },
-    city: { type: String },
-    state: { type: String },
-    pincode: { type: String },
+    phone:    { type: String },
+    street:   { type: String },
+    city:     { type: String },
+    state:    { type: String },
+    pincode:  { type: String },
   },
   items:        [orderItemSchema],
   statusHistory: [statusHistoryEntrySchema],
 }, { timestamps: true });
 
 export default mongoose.models.Order || mongoose.model('Order', orderSchema);
-

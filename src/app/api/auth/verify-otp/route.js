@@ -4,18 +4,14 @@ import { getFirebaseAdmin } from '@/lib/firebaseAdmin';
 import { signToken } from '@/lib/auth';
 import { successResponse, errorResponse } from '@/lib/apiResponse';
 import { checkRateLimit } from '@/lib/rateLimit';
-
-function phoneNumbersMatch(inputPhone, firebasePhone) {
-  if (!inputPhone || !firebasePhone) return false;
-  const inputDigits = inputPhone.replace(/\D/g, '');
-  const firebaseDigits = firebasePhone.replace(/\D/g, '');
-  return firebaseDigits.endsWith(inputDigits) || inputDigits.endsWith(firebaseDigits);
-}
+import { normalizePhone, phoneNumbersMatch } from '@/lib/phone';
 
 export async function POST(request) {
   try {
     // Rate limit by IP: 10 verify attempts per minute per IP
-    const ip = request.headers.get('x-forwarded-for') || 'unknown';
+    // Extract first IP only to prevent x-forwarded-for spoofing
+    const rawIp = request.headers.get('x-forwarded-for') || 'unknown';
+    const ip = rawIp.split(',')[0].trim();
     if (!(await checkRateLimit(ip, 10, 60000, 'verify-otp-ip'))) {
       return errorResponse('Too many verification attempts. Please try again later.', 429);
     }
@@ -27,14 +23,9 @@ export async function POST(request) {
     }
 
     // Format phone number to E.164 for database query and matching
-    let targetPhone = identifier.trim();
-    if (!targetPhone.startsWith('+')) {
-      const digits = targetPhone.replace(/\D/g, '');
-      if (digits.length === 10) {
-        targetPhone = `+91${digits}`;
-      } else if (digits.startsWith('91') && digits.length === 12) {
-        targetPhone = `+${digits}`;
-      }
+    const targetPhone = normalizePhone(identifier);
+    if (!targetPhone) {
+      return errorResponse('Valid 10-digit mobile number is required', 400);
     }
 
     // Rate limit by identifier: 5 verify attempts per minute per phone number
