@@ -1,0 +1,113 @@
+'use client';
+import Link from 'next/link';
+import { useCart } from '@/context/CartContext';
+import { ProductImage, formatPrice } from '@/components/ProductCard';
+import { DELIVERY_FREE_THRESHOLD, DELIVERY_CHARGE } from '@/lib/constants';
+
+export default function CartPage() {
+  const { cart, removeFromCart, updateQuantity, cartTotal, cartCount, clearCart } = useCart();
+
+  if (cart.length === 0) {
+    return (
+      <div className="container">
+        <div className="empty-state" style={{ marginTop: '60px' }}>
+          <span className="empty-icon">🛒</span>
+          <h3>Your Cart is Empty</h3>
+          <p>Looks like you haven&apos;t added any Ayurvedic medicines yet.</p>
+          <Link href="/products" className="btn btn-primary btn-lg">
+            🛍️ Start Shopping
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const deliveryCharge = cartTotal > DELIVERY_FREE_THRESHOLD ? 0 : DELIVERY_CHARGE;
+  const totalAmount = cartTotal + deliveryCharge;
+
+  const hasPrescriptionItem = cart.some(item => item.requiresPrescription === true);
+
+  return (
+    <>
+      <div className="page-header">
+        <div className="container">
+          <div className="breadcrumb">
+            <a href="/">Home</a> <span>/</span> <span>Shopping Cart</span>
+          </div>
+          <h1>🛒 Shopping Cart ({cartCount} items)</h1>
+        </div>
+      </div>
+
+      <div className="container">
+        <div className="cart-layout">
+          <div className="cart-items">
+            {cart.map(item => (
+              <div key={item.id} className="cart-item fade-in">
+                <div className="cart-item-image">
+                  <ProductImage product={item} size={72} />
+                </div>
+                <div className="cart-item-info">
+                  <Link href={`/products/${item.productId || item.id}`} className="cart-item-name">{item.name}</Link>
+                  <div className="cart-item-brand">{item.brand}</div>
+                  <div className="cart-item-price">{formatPrice(item.price)} × {item.quantity}</div>
+                </div>
+                <div className="cart-item-actions">
+                  <div className="quantity-selector">
+                    <button onClick={() => updateQuantity(item.id, item.quantity - 1)}>−</button>
+                    <span>{item.quantity}</span>
+                    <button onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</button>
+                  </div>
+                  <div style={{ fontWeight: 700, color: 'var(--green-800)', fontSize: 16 }}>
+                    {formatPrice(item.price * item.quantity)}
+                  </div>
+                  <button className="cart-item-remove" onClick={() => removeFromCart(item.id)}>
+                    ✕ Remove
+                  </button>
+                </div>
+              </div>
+            ))}
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 'var(--space-sm)' }}>
+              <button onClick={clearCart} className="btn btn-sm" style={{ background: 'var(--gray-100)', color: 'var(--gray-600)' }}>
+                🗑️ Clear Cart
+              </button>
+            </div>
+          </div>
+
+          <div className="cart-summary">
+            <h3>Order Summary</h3>
+            <div className="summary-row">
+              <span>Subtotal ({cartCount} items)</span>
+              <span>{formatPrice(cartTotal)}</span>
+            </div>
+            <div className="summary-row">
+              <span>Delivery Charge</span>
+              <span>{formatPrice(deliveryCharge)}</span>
+            </div>
+            <div className="summary-row total">
+              <span>Total</span>
+              <span>{formatPrice(totalAmount)}</span>
+            </div>
+            {hasPrescriptionItem ? (
+              <div style={{ marginTop: 'var(--space-md)' }}>
+                <button className="btn btn-lg" disabled style={{ width: '100%', opacity: 0.6, cursor: 'not-allowed' }}>
+                  Proceed to Checkout →
+                </button>
+                <p style={{ fontSize: 13, color: 'var(--orange-700)', marginTop: 8, textAlign: 'center', backgroundColor: '#fff3e0', padding: '10px 12px', borderRadius: 8 }}>
+                  ⚠️ Your cart contains items that require a prescription. Prescription upload and review must be implemented before checkout can proceed.
+                </p>
+              </div>
+            ) : (
+              <Link href="/checkout" className="btn btn-primary btn-lg" style={{ width: '100%', marginTop: 'var(--space-md)' }}>
+                Proceed to Checkout →
+              </Link>
+            )}
+            <Link href="/products" className="btn btn-secondary" style={{ width: '100%', marginTop: 'var(--space-sm)' }}>
+              Continue Shopping
+            </Link>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}

@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Disallow admin panel from being indexed
+Disallow: /admin
+Disallow: /api/
+
+Sitemap: https://rameshwaramayurveda.com/sitemap.xml

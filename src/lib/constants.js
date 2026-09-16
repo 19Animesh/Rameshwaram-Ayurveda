@@ -1,0 +1,37 @@
+export const BRAND_MAPPING = {
+  "01": "ARYA VAIDYA SALA",
+  "02": "AVN AYURVEDA",
+  "03": "AVP",
+  "04": "BAIDYANATH",
+  "05": "BIORESURGE",
+  "06": "DHOOTAPAPESHWAR",
+  "07": "Flora",
+  "08": "HIMALAYA",
+  "09": "KOTTAKKAL",
+  "10": "MAHARISHI",
+  "11": "NAGARJUNA",
+  "12": "SDM",
+  "13": "SHREE DHANWANTRI",
+  "14": "SKM SIDDHA",
+  "15": "SOLUMIKS",
+  "16": "TYNOR",
+  "17": "TYNOR ORTHOTICS",
+  "18": "VASU HEALTHCARE",
+  "19": "Vaidya Ratnam",
+  "20": "DABUR",
+  "21": "ZANDU",
+  "22": "ZOETIC",
+  "23": "PATANJALI",
+  "24": "DIVYA PHARMACY",
+  "25": "SG PYTHO PHARMA",
+  "26": "CHARAK PHARMA",
+  "27": "Others"
+};
+
+// ── Delivery Business Rules ──────────────────────────────────────────────────
+// Single source of truth — import these everywhere instead of hardcoding.
+// Delivery is free when cart subtotal exceeds this threshold (in INR).
+export const DELIVERY_FREE_THRESHOLD = 500;
+
+// Flat delivery charge applied when subtotal is at or below the threshold (in INR).
+export const DELIVERY_CHARGE = 100;
