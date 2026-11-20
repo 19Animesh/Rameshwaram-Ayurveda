@@ -10,14 +10,22 @@
  *
  * Order of preference:
  *   1. NEXT_PUBLIC_APP_URL — set this to your real domain in Vercel.
+ *      A localhost value is ignored on a deployed build: copying the local
+ *      .env into Vercel must not make the live site advertise localhost.
  *   2. VERCEL_PROJECT_PRODUCTION_URL — Vercel's production domain, provided
  *      automatically on Vercel deployments.
  *   3. VERCEL_URL — the address of this particular deployment.
  *   4. http://localhost:3000 — local development.
  */
 export function getSiteUrl() {
-  const explicit = process.env.NEXT_PUBLIC_APP_URL;
-  if (explicit) return explicit.trim().replace(/\/+$/, '');
+  const explicit = (process.env.NEXT_PUBLIC_APP_URL || '').trim().replace(/\/+$/, '');
+
+  // A localhost value is ignored on a deployed build: copying the local .env
+  // into Vercel must not make the live site advertise localhost in its
+  // canonical tags, link previews, sitemap and robots.txt.
+  const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/i.test(explicit);
+  const isDeployed = Boolean(process.env.VERCEL);
+  if (explicit && !(isLocal && isDeployed)) return explicit;
 
   const productionDomain = process.env.VERCEL_PROJECT_PRODUCTION_URL;
   if (productionDomain) return `https://${productionDomain}`;

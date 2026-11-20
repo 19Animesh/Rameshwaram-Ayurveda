@@ -942,24 +942,6 @@ input, select, textarea {
   color: var(--green-600);
 }
 
-.product-card-rating {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
-.stars {
-  color: var(--gold-500);
-  font-size: 14px;
-  letter-spacing: 1px;
-}
-
-.rating-count {
-  font-size: 12px;
-  color: var(--gray-500);
-}
-
 .product-card-price {
   display: flex;
   flex-wrap: wrap;
@@ -2125,6 +2107,69 @@ input, select, textarea {
 .variant-select:focus {
   outline: none;
   border-color: var(--green-400);
+}
+
+/* Size picker on the product detail page */
+.variant-picker {
+  margin: var(--space-md) 0;
+}
+
+.variant-picker-label {
+  display: block;
+  font-size: 13px;
+  color: var(--gray-500);
+  margin-bottom: 8px;
+}
+
+.variant-picker-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.variant-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 84px;
+  padding: 8px 14px;
+  border: 2px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  background: white;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.variant-chip:hover {
+  border-color: var(--green-400);
+}
+
+.variant-chip:focus-visible {
+  outline: 2px solid var(--green-500);
+  outline-offset: 2px;
+}
+
+.variant-chip.selected {
+  border-color: var(--green-500);
+  background: var(--green-50);
+}
+
+.variant-chip-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.variant-chip-price {
+  font-size: 12px;
+  color: var(--gray-500);
+}
+
+.variant-chip.sold-out .variant-chip-label {
+  text-decoration: line-through;
+  color: var(--gray-500);
 }
 
 .cart-quantity-controls {
@@ -3331,20 +3376,6 @@ main {
 
   .product-card-name {
     font-size: 14px;
-  }
-
-  .product-card-rating {
-    flex-wrap: wrap;
-    gap: 2px 4px;
-  }
-
-  .product-card .stars {
-    font-size: 12px;
-    letter-spacing: 0;
-  }
-
-  .product-card .rating-count {
-    font-size: 11px;
   }
 
   .product-card .price-current {

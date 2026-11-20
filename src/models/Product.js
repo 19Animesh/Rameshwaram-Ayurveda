@@ -22,8 +22,6 @@ const productSchema = new mongoose.Schema({
   imageUrl: { type: String, default: '' },
   imagePublicId: { type: String, default: null },
   expiryDate: { type: String, default: null },
-  rating: { type: Number, default: 0 },
-  reviewCount: { type: Number, default: 0 },
   featured: { type: Boolean, default: false },
   requiresPrescription: { type: Boolean, default: false },
   variants: [productVariantSchema]

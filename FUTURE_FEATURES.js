@@ -95,13 +95,6 @@
 //           : 'https://schema.org/OutOfStock',
 //       url: `${process.env.NEXT_PUBLIC_APP_URL}/products/${product.id}`,
 //     },
-//     ...(product.reviewCount > 0 && {
-//       aggregateRating: {
-//         '@type': 'AggregateRating',
-//         ratingValue: String(product.rating),
-//         reviewCount: String(product.reviewCount),
-//       },
-//     }),
 //   };
 //
 //   return (
@@ -331,55 +324,6 @@
 //   } catch (err) {
 //     console.error('[mailer] order confirmation failed:', err);
 //   }
-// }
-
-
-/* ═══════════════════════════════════════════════════════════════════════════
- * 7. PRODUCT REVIEWS
- * ───────────────────────────────────────────────────────────────────────────
- * PROBLEM: Every product card renders "☆☆☆☆☆ (0)". The Product schema has
- *   `rating` and `reviewCount` fields, but nothing ever writes to them, so the
- *   empty stars are permanent — which reads as "nobody has bought this".
- *
- * FILES:  new src/models/Review.js, new src/app/api/products/[id]/reviews/route.js
- * EFFORT: ~4 hours including UI.  IMPACT: medium-high (social proof sells).
- *
- * The verified-purchase check matters: without it, review spam arrives quickly.
- * ═══════════════════════════════════════════════════════════════════════════ */
-
-// // ── src/models/Review.js ───────────────────────────────────────────────
-// import mongoose from 'mongoose';
-//
-// const reviewSchema = new mongoose.Schema({
-//   productId: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
-//   userId:    { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-//   userName:  { type: String, required: true },
-//   rating:    { type: Number, required: true, min: 1, max: 5 },
-//   title:     { type: String, maxlength: 120 },
-//   body:      { type: String, maxlength: 2000 },
-//   verifiedPurchase: { type: Boolean, default: false },
-// }, { timestamps: true });
-//
-// // One review per user per product.
-// reviewSchema.index({ productId: 1, userId: 1 }, { unique: true });
-// reviewSchema.index({ productId: 1, createdAt: -1 });
-//
-// export default mongoose.models.Review || mongoose.model('Review', reviewSchema);
-//
-// // ── recalculating the denormalised average after each write ────────────
-// export async function recalculateProductRating(productId) {
-//   const [agg] = await Review.aggregate([
-//     { $match: { productId: new mongoose.Types.ObjectId(productId) } },
-//     { $group: { _id: null, avg: { $avg: '$rating' }, count: { $sum: 1 } } },
-//   ]);
-//
-//   await Product.updateOne(
-//     { _id: productId },
-//     {
-//       rating: agg ? Math.round(agg.avg * 10) / 10 : 0,
-//       reviewCount: agg ? agg.count : 0,
-//     }
-//   );
 // }
 
 

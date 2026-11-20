@@ -59,7 +59,7 @@ export async function PUT(request, { params }) {
     // ✅ Whitelist matches ACTUAL Prisma schema fields (brandId, brandName, usage — NOT brand/howToConsume)
     const allowed = [
       'name', 'brandId', 'brandName', 'category', 'description',
-      'rating', 'reviewCount', 'originalPrice', 'price', 'stock',
+      'originalPrice', 'price', 'stock',
       'expiryDate', 'dosage', 'usage', 'sideEffects',
       'imageUrl', 'imagePublicId', 'featured', 'requiresPrescription'
     ];

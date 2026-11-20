@@ -57,6 +57,8 @@ export const productQuerySchema = z.object({
   brand: z.string().trim().max(100).optional(),
   minPrice: z.coerce.number().min(0).optional(),
   maxPrice: z.coerce.number().min(0).optional(),
+  // 'rating' is still accepted so old bookmarked URLs don't 400; reviews were
+  // removed, so it falls through to the default (newest) order.
   sort: z.enum(['price-asc', 'price-desc', 'rating', 'name', 'newest']).optional(),
   featured: z.string().optional(),
   all: z.string().optional(),

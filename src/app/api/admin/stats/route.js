@@ -40,10 +40,21 @@ export async function GET(request) {
       Product.aggregate([
         { $group: { _id: '$category', count: { $sum: 1 } } }
       ]),
-      Product.find({}, 'name reviewCount price')
-        .sort({ reviewCount: -1 })
-        .limit(5)
-        .lean(),
+      // Best sellers from real order lines (cancelled orders excluded).
+      Order.aggregate([
+        { $match: { status: { $ne: 'cancelled' } } },
+        { $unwind: '$items' },
+        {
+          $group: {
+            _id: '$items.productId',
+            name: { $first: '$items.name' },
+            sales: { $sum: '$items.quantity' },
+            revenue: { $sum: { $multiply: ['$items.price', '$items.quantity'] } },
+          },
+        },
+        { $sort: { sales: -1 } },
+        { $limit: 5 },
+      ]),
     ]);
 
     const lowStockProducts = lowStockProductsRaw.map(p => ({
@@ -53,10 +64,10 @@ export async function GET(request) {
     }));
 
     const topProducts = topProductsRaw.map(p => ({
-      id: p._id.toString(),
+      id: String(p._id),
       name: p.name,
-      sales: p.reviewCount,
-      revenue: (p.price || 0) * (p.reviewCount || 0)
+      sales: p.sales,
+      revenue: p.revenue,
     }));
 
     const totalRevenue = orders.reduce((sum, o) => sum + (o.totalAmount || 0), 0);

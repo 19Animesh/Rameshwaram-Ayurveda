@@ -131,7 +131,7 @@ It only creates missing indexes and never drops any, so it is safe to re-run. Wi
 
 ## `FUTURE_FEATURES.js`
 
-Root-level file containing fully commented-out implementations of features that would move this project further toward production readiness — per-product SEO metadata and JSON-LD, race-safe stock decrement, full-text search, CSP, Redis rate limiting, transactional email, product reviews, and an index-sync script. Nothing in it executes or affects the build; copy a section out when you want it.
+Root-level file containing fully commented-out implementations of features that would move this project further toward production readiness — per-product SEO metadata and JSON-LD, race-safe stock decrement, full-text search, CSP, Redis rate limiting, transactional email, and an index-sync script. Nothing in it executes or affects the build; copy a section out when you want it.
 
 ---
 

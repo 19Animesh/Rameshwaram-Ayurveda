@@ -22,7 +22,10 @@ const PRODUCT_EMOJIS = {
 };
 
 export function getProductEmoji(category) {
-  return PRODUCT_EMOJIS[category] || '🌿';
+  // Categories are stored as display names ("Joint Care", "Women's Health"),
+  // so normalise to the slug keys above before looking up.
+  const slug = String(category || '').toLowerCase().replace(/'/g, '').trim().replace(/[\s_]+/g, '-');
+  return PRODUCT_EMOJIS[slug] || '🌿';
 }
 
 import { optimizeImageUrl, getBlurUrl } from '@/lib/cloudinary-client';
@@ -93,13 +96,6 @@ export function ProductImage({ product, size = 56, style = {} }) {
       {emoji}
     </span>
   );
-}
-
-export function getStars(rating) {
-  const full = Math.floor(rating);
-  const half = rating % 1 >= 0.5 ? 1 : 0;
-  const empty = 5 - full - half;
-  return '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(empty);
 }
 
 export function formatPrice(price) {
@@ -234,11 +230,6 @@ function ProductCard({ product }) {
         <div className="product-card-name">
           <Link href={`/products/${product.id}`}>{activeProduct.name}</Link>
         </div>
-        <div className="product-card-rating">
-          <span className="stars">{getStars(product.rating)}</span>
-          <span className="rating-count">({product.reviewCount})</span>
-        </div>
-        
         {/* Variant Selector */}
         {hasVariants && (
           <select 
@@ -299,8 +290,6 @@ export default memo(ProductCard, (prev, next) => {
     a?.originalPrice === b?.originalPrice &&
     a?.stock === b?.stock &&
     a?.imageUrl === b?.imageUrl &&
-    a?.name === b?.name &&
-    a?.rating === b?.rating &&
-    a?.reviewCount === b?.reviewCount
+    a?.name === b?.name
   );
 });

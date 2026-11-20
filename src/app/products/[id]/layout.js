@@ -94,15 +94,6 @@ function productJsonLd(product) {
       availability: inStock ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
       url: `${getSiteUrl()}/products/${product.id}`,
     },
-    ...(product.reviewCount > 0 && product.rating > 0
-      ? {
-          aggregateRating: {
-            '@type': 'AggregateRating',
-            ratingValue: String(product.rating),
-            reviewCount: String(product.reviewCount),
-          },
-        }
-      : {}),
   };
 }
 

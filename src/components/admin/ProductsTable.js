@@ -1,4 +1,5 @@
 import { formatPrice } from '@/components/ProductCard';
+import { optimizeImageUrl } from '@/lib/cloudinary-client';
 
 export default function ProductsTable({ products, inlineStock, setInlineStock, savingStock, saveInlineStock, handleEdit, handleDelete }) {
   if (!products || products.length === 0) {
@@ -16,7 +17,6 @@ export default function ProductsTable({ products, inlineStock, setInlineStock, s
             <th>Category</th>
             <th>Price</th>
             <th>Stock (edit inline)</th>
-            <th>Rating</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -26,7 +26,11 @@ export default function ProductsTable({ products, inlineStock, setInlineStock, s
               <td>
                 {product.imageUrl ? (
                   <img
-                    src={product.imageUrl}
+                    src={optimizeImageUrl(product.imageUrl, { width: 96, height: 96 }) || product.imageUrl}
+                    loading="lazy"
+                    decoding="async"
+                    width={48}
+                    height={48}
                     alt={product.name}
                     style={{ width: 48, height: 48, objectFit: 'contain', borderRadius: 6, background: '#f5f5f5', border: '1px solid #e0e0e0' }}
                     onError={e => { e.target.style.display = 'none'; }}
@@ -57,7 +61,6 @@ export default function ProductsTable({ products, inlineStock, setInlineStock, s
                   </button>
                 </div>
               </td>
-              <td>⭐ {product.rating}</td>
               <td>
                 <div style={{ display: 'flex', gap: 6 }}>
                   <button className="btn btn-sm btn-secondary" onClick={() => handleEdit(product)} title="Edit product">✏️ Edit</button>

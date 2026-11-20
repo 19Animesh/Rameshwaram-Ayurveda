@@ -6,12 +6,13 @@ export function optimizeImageUrl(url, options = {}) {
   if (!url || !url.startsWith('http')) return '';
   if (!url.includes('cloudinary.com')) return url;
   
-  const { width, height, crop = 'fill', gravity = 'auto' } = options;
+  // 'limit' fits the whole packshot inside the box without cropping or upscaling.
+  const { width, height, crop = 'limit' } = options;
   
-  let transformations = 'f_auto,q_auto,dpr_auto';
+  let transformations = 'f_auto,q_auto';
   if (width) transformations += `,w_${width}`;
   if (height) transformations += `,h_${height}`;
-  if (width || height) transformations += `,c_${crop},g_${gravity}`;
+  if (width || height) transformations += `,c_${crop}`;
 
   if (url.includes('/upload/')) {
     return url.replace('/upload/', `/upload/${transformations}/`);

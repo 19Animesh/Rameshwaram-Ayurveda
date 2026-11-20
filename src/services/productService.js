@@ -17,7 +17,7 @@ import Product from '@/models/Product';
  */
 const LIST_FIELDS = [
   '_id', 'name', 'brandName', 'category', 'price', 'originalPrice',
-  'stock', 'rating', 'reviewCount', 'featured', 'imageUrl',
+  'stock', 'featured', 'imageUrl',
   'requiresPrescription', 'variants',
 ].join(' ');
 
@@ -60,7 +60,6 @@ export async function getProducts({ page = 1, limit = 12, search, category, bran
     switch (sort) {
       case 'price-asc':  sortObj = { price: 1 }; break;
       case 'price-desc': sortObj = { price: -1 }; break;
-      case 'rating':     sortObj = { rating: -1 }; break;
       case 'name':       sortObj = { name: 1 }; break;
       case 'newest':     sortObj = { createdAt: -1 }; break;
       default:           sortObj = { createdAt: -1 }; break;

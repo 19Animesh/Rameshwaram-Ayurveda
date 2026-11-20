@@ -17,13 +17,6 @@ export function getDiscount(original, current) {
   return Math.round(((original - current) / original) * 100);
 }
 
-export function getStars(rating) {
-  const full = Math.floor(rating);
-  const half = rating % 1 >= 0.5 ? 1 : 0;
-  const empty = 5 - full - half;
-  return '★'.repeat(full) + (half ? '½' : '') + '☆'.repeat(empty);
-}
-
 export function formatDate(dateStr, opts = {}) {
   return new Date(dateStr).toLocaleDateString('en-IN', {
     year: 'numeric',

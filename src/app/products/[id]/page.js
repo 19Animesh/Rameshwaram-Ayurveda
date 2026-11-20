@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { useCart } from '@/context/CartContext';
-import { getProductEmoji, getStars, formatPrice, getDiscount } from '@/components/ProductCard';
+import { getProductEmoji, formatPrice, getDiscount } from '@/components/ProductCard';
 import { optimizeImageUrl, getBlurUrl } from '@/lib/cloudinary-client';
 
 export default function ProductDetailPage() {
@@ -14,6 +14,7 @@ export default function ProductDetailPage() {
   const [added, setAdded] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
+  const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
   const { addToCart, addToWishlist, isInWishlist, removeFromWishlist } = useCart();
 
   // Separates "this product does not exist" (404) from "the request failed",
@@ -70,11 +71,32 @@ export default function ProductDetailPage() {
     </div>
   );
 
-  const discount = getDiscount(product.originalPrice, product.price);
+  // ── Size variants ──
+  // Same cart-line shape as ProductCard: `id` is unique per size inside the
+  // cart, while `productId` + `variantId`/`variantLabel` let the server look
+  // up the real price and stock of that exact size at checkout. Without this,
+  // sized products added from this page were rejected at payment time.
+  const hasVariants = Array.isArray(product.variants) && product.variants.length > 1;
+  const activeVariant = hasVariants
+    ? product.variants[Math.min(selectedVariantIndex, product.variants.length - 1)]
+    : null;
+  const activeProduct = {
+    ...product,
+    id: hasVariants ? `${product.id}-${activeVariant.label}` : product.id,
+    productId: product.id,
+    variantId: activeVariant?._id ? String(activeVariant._id) : null,
+    variantLabel: activeVariant ? activeVariant.label : null,
+    name: hasVariants ? `${product.name} (${activeVariant.label})` : product.name,
+    price: activeVariant ? activeVariant.price : product.price,
+    originalPrice: activeVariant ? activeVariant.originalPrice : product.originalPrice,
+    stock: activeVariant ? (activeVariant.stock ?? 0) : product.stock,
+  };
+
+  const discount = getDiscount(activeProduct.originalPrice, activeProduct.price);
   const emoji = getProductEmoji(product.category);
 
   const handleAddToCart = () => {
-    addToCart(product, quantity);
+    addToCart(activeProduct, quantity);
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   };
@@ -87,8 +109,9 @@ export default function ProductDetailPage() {
     }
   };
 
-  const stockStatus = product.stock > 50 ? 'in-stock' : product.stock > 0 ? 'low-stock' : 'out-of-stock';
-  const stockText = product.stock > 50 ? 'In Stock' : product.stock > 0 ? `Only ${product.stock} left` : 'Out of Stock';
+  const stock = activeProduct.stock;
+  const stockStatus = stock > 50 ? 'in-stock' : stock > 0 ? 'low-stock' : 'out-of-stock';
+  const stockText = stock > 50 ? 'In Stock' : stock > 0 ? `Only ${stock} left` : 'Out of Stock';
 
   return (
     <>
@@ -141,23 +164,43 @@ export default function ProductDetailPage() {
           <div className="product-detail-info">
             <div className="product-detail-brand">{product.brandName}</div>
             <h1>{product.name}</h1>
-            
-            <div className="product-card-rating" style={{ margin: 'var(--space-md) 0' }}>
-              <span className="stars" style={{ fontSize: '18px' }}>{getStars(product.rating)}</span>
-              <span className="rating-count" style={{ fontSize: '14px' }}>
-                {product.rating} ({product.reviewCount} reviews)
-              </span>
-            </div>
 
             <div className="product-detail-price">
-              <span className="price-current">{formatPrice(product.price)}</span>
-              {product.originalPrice > product.price && (
+              <span className="price-current">{formatPrice(activeProduct.price)}</span>
+              {activeProduct.originalPrice > activeProduct.price && (
                 <>
-                  <span className="price-original">{formatPrice(product.originalPrice)}</span>
+                  <span className="price-original">{formatPrice(activeProduct.originalPrice)}</span>
                   <span className="price-discount">{discount}% off</span>
                 </>
               )}
             </div>
+
+            {hasVariants && (
+              <div className="variant-picker" role="radiogroup" aria-label="Size">
+                <span className="variant-picker-label">Size</span>
+                <div className="variant-picker-options">
+                  {product.variants.map((variant, index) => {
+                    const soldOut = (variant.stock ?? 0) <= 0;
+                    const selected = index === selectedVariantIndex;
+                    return (
+                      <button
+                        key={variant._id || variant.label}
+                        type="button"
+                        role="radio"
+                        aria-checked={selected}
+                        className={`variant-chip${selected ? ' selected' : ''}${soldOut ? ' sold-out' : ''}`}
+                        onClick={() => { setSelectedVariantIndex(index); setQuantity(1); }}
+                      >
+                        <span className="variant-chip-label">{variant.label}</span>
+                        <span className="variant-chip-price">
+                          {soldOut ? 'Out of stock' : formatPrice(variant.price)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <div className="detail-section">
               <h3>📋 Description</h3>
@@ -197,7 +240,7 @@ export default function ProductDetailPage() {
                 <div className="quantity-selector">
                   <button onClick={() => setQuantity(Math.max(1, quantity - 1))}>−</button>
                   <span>{quantity}</span>
-                  <button onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}>+</button>
+                  <button onClick={() => setQuantity(Math.max(1, Math.min(stock, quantity + 1)))}>+</button>
                 </div>
               </div>
             </div>
@@ -206,9 +249,9 @@ export default function ProductDetailPage() {
               <button
                 className={`btn ${added ? 'btn-gold' : 'btn-primary'} btn-lg`}
                 onClick={handleAddToCart}
-                disabled={product.stock === 0}
+                disabled={stock <= 0}
               >
-                {added ? '✓ Added to Cart!' : '🛒 Add to Cart'}
+                {stock <= 0 ? 'Out of Stock' : added ? '✓ Added to Cart!' : '🛒 Add to Cart'}
               </button>
               <button
                 className={`btn btn-secondary btn-lg`}
